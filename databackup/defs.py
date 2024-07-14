@@ -14,7 +14,6 @@ class UserConfig:
     ticker_name: str
     ticker_type: TickerType
     # ticker_sect: ""
-    added_date: dt.date| str
 
     tasks: list[BaseTask]
     notes: str = ""

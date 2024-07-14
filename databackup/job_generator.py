@@ -7,7 +7,7 @@ import pathlib
 import pandas as pd
 
 
-from .db_messenger import DBMessenger as DB
+from .db_utils import DBMessenger as DB
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
 from .defs import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
 from .user_config import TICKER_CONFIGS
