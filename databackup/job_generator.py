@@ -21,6 +21,24 @@ class JobGenerator:
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
 
+    def _parse_input_date(self, date: str | dt.datetime | dt.date, time: Optional[dt.time] = None) -> dt.datetime:
+
+        if isinstance(date, dt.datetime):
+            return date
+        elif isinstance(date, dt.date):
+            _time = time or dt.time.min 
+            return dt.datetime.combine(date, _time)
+
+        elif isinstance(date, str):
+            _date = pd.to_datetime(date).to_pydatetime()
+
+            if _date == dt.datetime.combine(_date.date(), dt.time.min):
+                _time = time or dt.time.min 
+                return dt.datetime.combine(_date, _time)
+
+        raise ValueError(f'Given input {date} is not valid')
+        
+
     def _parse_history_range_args(self, task) -> dict:
 
         _period, _start, _end = None, None, None
@@ -47,14 +65,15 @@ class JobGenerator:
                 # - start and end are both None, 
                 # Guarantee the largest coverage of result
                 if task.end is not None:
-                    _end = pd.to_datetime(task.end)
+                    # TODO - parse input: could be str / datetime
+                    _end = self._parse_input_date(task.end, dt.time.max)
                 else:
                     _end = dt.datetime.combine(
                         self.run_datetime.date() - dt.timedelta(days=task.end_day_offset),
                         dt.time.max)
 
                 if task.start is not None:
-                    _start = pd.to_datetime(task.start)
+                    _start = self._parse_input_date(task.start, dt.time.min)
                 else:
                     _start = dt.datetime.combine(
                         _end - dt.timedelta(days=task.past_days),
