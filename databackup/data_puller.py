@@ -157,7 +157,8 @@ class TickerPuller(abc.ABC):
         self._rating = RatingData(
             recommendations=self.ticker.recommendations,
             recommendations_summary=self.ticker.recommendations_summary,
-            upgrades_downgrades=self.ticker.upgrades_downgrades)
+            upgrades_downgrades=self.ticker.upgrades_downgrades
+        )
 
     def _download_option(self):
         """Download and organize the options results

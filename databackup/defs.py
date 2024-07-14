@@ -104,6 +104,5 @@ class JobSetup:
             'run_intraday_version': self.run_intraday_version,
             'task_name': self.task.name
         }
-
         
         

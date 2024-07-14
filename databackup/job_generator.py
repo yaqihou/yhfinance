@@ -69,8 +69,6 @@ class JobGenerator:
             """
             df = db.read_sql(sql)
 
-        print(sql)
-
         if df.empty:  intraday_ver = 1
         else:
             intraday_ver = df.iloc[0, 0] + 1

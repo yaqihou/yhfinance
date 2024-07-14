@@ -235,7 +235,7 @@ class HistoryData(BaseData):
         ret = [
             (_df_history, TableName.History.PRICE_TABLE_MAPPING[_interval]),
             (_df_args, TableName.History.ARGS),
-            (_df_meta, TableName.History.PRICE_TABLE_MAPPING[_interval]),
+            (_df_meta, TableName.History.METADATA_TABLE_MAPPING[_interval]),
         ]
 
         return [(self._add_job_metainfo_cols(x, job), y) for x, y in ret]
