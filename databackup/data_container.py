@@ -8,7 +8,7 @@ import pandas as pd
 import json
 from dataclasses import dataclass
 
-from .defs import JobSetup
+from .defs import JobSetup, TableName
 from .db_messenger import DBMessenger as DB
 
 logger = logging.getLogger("yfinance-backup.datadump")
@@ -95,10 +95,10 @@ class OptionData(BaseData):
             df_underlyings = pd.DataFrame.from_dict(_data_dict)
 
             ret = [
-                    (df_expirations, 'data_options_expirations'),
-                    (df_calls, 'data_options_calls'),
-                    (df_puts, 'data_options_puts'),
-                    (df_underlyings, 'data_options_underlyings'),
+                    (df_expirations, TableName.Option.EXPIRATIONS),
+                    (df_calls, TableName.Option.CALLS),
+                    (df_puts, TableName.Option.PUTS),
+                    (df_underlyings, TableName.Option.UNDERLYINGS),
             ]
 
             return [(self._add_job_metainfo_cols(x, job), y) for x, y in ret]
@@ -181,8 +181,8 @@ class NewsData(BaseData):
         df_relation = pd.DataFrame.from_dict(relation_dict)
 
         ret = [
-            (df_news, 'data_news_content'),
-            (df_relation, 'data_news_relation'),
+            (df_news, TableName.News.CONTENT),
+            (df_relation, TableName.News.RELATION),
         ]
         return [(x, y) for x, y in ret if not x.empty]
             
@@ -195,36 +195,6 @@ class HistoryData(BaseData):
     #
     args: dict
     metadata: dict
-
-    HISTORY_TABLE_MAPPING = {
-        '1m': 'data_history_intra_min01',
-        '2m': 'data_history_intra_min02',
-        '5m': 'data_history_intra_min05',
-        '15m': 'data_history_intra_min15',
-        '30m': 'data_history_intra_min30',
-        '60m': 'data_history_intra_min60',
-        '90m': 'data_history_intra_min90',
-        '1d': 'data_history_day_day1',
-        '5d': 'data_history_day_day5',
-        '1wk': 'data_history_day_day7',
-        '1mo': 'data_history_day_mon1',
-        '3mo': 'data_history_day_mon3',
-    }
-
-    HISTORY_META_TABLE_MAPPING = {
-        '1m': 'data_history_meta_intra_min01',
-        '2m': 'data_history_meta_intra_min02',
-        '5m': 'data_history_meta_intra_min05',
-        '15m': 'data_history_meta_intra_min15',
-        '30m': 'data_history_meta_intra_min30',
-        '60m': 'data_history_meta_intra_min60',
-        '90m': 'data_history_meta_intra_min90',
-        '1d': 'data_history_meta_day_day1',
-        '5d': 'data_history_meta_day_day5',
-        '1wk': 'data_history_meta_day_day7',
-        '1mo': 'data_history_meta_day_mon1',
-        '3mo': 'data_history_meta_day_mon3',
-    }
 
     def _prepare_df_for_db(self, job: JobSetup):
 
@@ -263,9 +233,9 @@ class HistoryData(BaseData):
         _df_meta = pd.DataFrame.from_dict(_meta_dict)
 
         ret = [
-            (_df_history, self.HISTORY_TABLE_MAPPING[_interval]),
-            (_df_args, 'data_history_args'),
-            (_df_meta, self.HISTORY_META_TABLE_MAPPING[_interval]),
+            (_df_history, TableName.History.PRICE_TABLE_MAPPING[_interval]),
+            (_df_args, TableName.History.ARGS),
+            (_df_meta, TableName.History.PRICE_TABLE_MAPPING[_interval]),
         ]
 
         return [(self._add_job_metainfo_cols(x, job), y) for x, y in ret]
@@ -282,18 +252,15 @@ class HolderData(BaseData):
     insider_roster_holders : pd.DataFrame
     
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
-        ret = []
-        for holder_type, df in [
-                ('majorHolders'          , self.major_holders),
-                ('institutionalHolders'  , self.institutional_holders),
-                ('mutualfundHolders'     , self.mutualfund_holders),
-                ('insiderTransactions'   , self.insider_transactions),
-                ('insiderPurchases'      , self.insider_purchases),
-                ('insiderRosterHolders' , self.insider_roster_holders)]:
-            if not df.empty:
-                ret.append((self._add_job_metainfo_cols(df, job), f'data_holder_{holder_type}'))
-
-        return ret
+        ret = [
+            (self.major_holders          , TableName.Holder.MAJOR),
+            (self.institutional_holders  , TableName.Holder.INSTITUTIONAL),
+            (self.mutualfund_holders     , TableName.Holder.MUTUAL_FUND),
+            (self.insider_transactions   , TableName.Holder.INSIDER_TRANSACTION),
+            (self.insider_purchases      , TableName.Holder.INSIDER_PURCHASE),
+            (self.insider_roster_holders , TableName.Holder.INSIDER_ROSTER)
+        ]
+        return [(self._add_job_metainfo_cols(x, job), y) for x, y in ret if x is not None and not x.empty]
 
 
 @dataclass
@@ -306,7 +273,7 @@ class InfoData(BaseData):
         _df = pd.DataFrame.from_dict({
             'info_json': [json.dumps(self.info)]
         })
-        return [(self._add_job_metainfo_cols(_df, job), 'data_info')]
+        return [(self._add_job_metainfo_cols(_df, job), TableName.INFO)]
 
 
 @dataclass
@@ -325,33 +292,34 @@ class FinancialData(BaseData):
 
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
 
-        ret = []
+        tmp_lst = [
+                (self.income_stmt       , TableName.Financial.INCOME_STMP),
+                (self.qtr_income_stmt   , TableName.Financial.QTR_INCOME_STMP),
+                (self.balance_sheet     , TableName.Financial.BALANCE_SHEET),
+                (self.qtr_balance_sheet , TableName.Financial.QTR_BALANCE_SHEET),
+                (self.cashflow          , TableName.Financial.CASHFLOW),
+                (self.qtr_cashflow      , TableName.Financial.QTR_CASHFLOW)
+        ]
 
-        for report_type, df in [
-                ('is', self.income_stmt),
-                ('qtrIs', self.qtr_income_stmt),
-                ('bs', self.balance_sheet),
-                ('qtrBs', self.qtr_balance_sheet),
-                ('cf', self.cashflow),
-                ('qtrCf', self.qtr_cashflow)
-        ]:
+        ret = []
+        for df, tbl_name in tmp_lst:
             if df is not None and not df.empty:
                 _df = df.transpose().reset_index(names='report_date')
                 ret.append(
-                    (self._add_job_metainfo_cols(_df, job), f'data_financial_{report_type}')
+                    (self._add_job_metainfo_cols(_df, job), tbl_name)
                 )
 
         if self.earnings_dates is not None and not self.earnings_dates.empty:
             df = self.earnings_dates.reset_index()
             ret.append(
-                (self._add_job_metainfo_cols(df, job), 'data_financial_earningsDates')
+                (self._add_job_metainfo_cols(df, job), TableName.Financial.EARNINGS_DATES)
             )
 
         return ret
 
         
 @dataclass
-class RecommendationData(BaseData):
+class RatingData(BaseData):
 
     recommendations: pd.DataFrame 
     recommendations_summary: pd.DataFrame 
@@ -359,22 +327,24 @@ class RecommendationData(BaseData):
 
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
 
+        tmp = [
+            (self.recommendations, TableName.Rating.RECOMMENDATIONS),
+            (self.recommendations_summary, TableName.Rating.RECOMMENDATIONS_SUMMARY)
+        ]
+
         ret = []
-        for report_type, df in [
-                ('recommendations', self.recommendations),
-                ('recommendationsSummary', self.recommendations_summary),
-        ]:
+        for df, tbl_name in tmp:
 
             if not df.empty:
                 ret.append(
-                    (self._add_job_metainfo_cols(df, job), f'data_rating_{report_type}')
+                    (self._add_job_metainfo_cols(df, job), tbl_name)
                 )
                 
         # Need reset_index
         if not self.upgrades_downgrades.empty:
             df = self.upgrades_downgrades.reset_index()
             ret.append(
-                (self._add_job_metainfo_cols(df, job), f'data_rating_upgradesDowngrades')
+                (self._add_job_metainfo_cols(df, job), TableName.Rating.UPGRADES_DOWNGRADES)
             )
                 
         return ret
@@ -389,7 +359,7 @@ class DataContainer:
     news: Optional[NewsData] = None
     holder: Optional[HolderData] = None
     financial: Optional[FinancialData] = None
-    recommendation: Optional[RecommendationData] = None
+    rating: Optional[RatingData] = None
     option: Optional[OptionData] = None
 
     def dump(self):
@@ -399,7 +369,7 @@ class DataContainer:
                       self.news,
                       self.holder,
                       self.financial,
-                      self.recommendation,
+                      self.rating,
                       self.option]:
             if data is not None:
                 data.dump(self.job)

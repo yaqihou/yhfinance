@@ -32,10 +32,10 @@ TASK_FINANCIAL = BaseTask(
     download_switch = DS.FINANCIAL
 )
 
-TASK_RECOMMENDATION = BaseTask(
-    name = "weekly_recommendation",
+TASK_RATING = BaseTask(
+    name = "weekly_rating",
     backup_freq=BackupFrequency.WEEKLY,
-    download_switch = DS.RECOMMENDATION
+    download_switch = DS.RATING
 )
 
 TASK_HOLDER = BaseTask(
@@ -62,7 +62,7 @@ TASK_DAY = HistoryTask(
 )
 
 # TASK_NEWS_FULLTEXT
-TASKS_ALL = [TASK_OPTION, TASK_NEWS, TASK_FINANCIAL, TASK_RECOMMENDATION, TASK_DAY] + TASKS_INTRADAY
+TASKS_ALL = [TASK_OPTION, TASK_NEWS, TASK_FINANCIAL, TASK_RATING, TASK_DAY] + TASKS_INTRADAY
 
 ETF_TASKS = [TASK_OPTION, TASK_DAY] + TASKS_INTRADAY
 

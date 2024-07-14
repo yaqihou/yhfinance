@@ -72,7 +72,7 @@ class TickerPuller(abc.ABC):
         self._info: Optional[InfoData] = None
         self._news: Optional[NewsData] = None
         self._financial: Optional[FinancialData] = None
-        self._recommendation: Optional[RecommendationData] = None
+        self._rating: Optional[RatingData] = None
         self._option: Optional[OptionData] = None
 
         self._data: DataContainer = DataContainer(job)
@@ -99,9 +99,9 @@ class TickerPuller(abc.ABC):
             with DownloadLog("holder data for %s", self.job.ticker_name):
                 self._download_holders()
 
-        if self.job.download_switch & DownloadSwitch.RECOMMENDATION:
-            with DownloadLog("recommendations data for %s", self.job.ticker_name):
-                self._download_recommendations()
+        if self.job.download_switch & DownloadSwitch.RATING:
+            with DownloadLog("rating data for %s", self.job.ticker_name):
+                self._download_ratings()
 
         if self.job.download_switch & DownloadSwitch.NEWS:
             with DownloadLog("news data for %s", self.job.ticker_name):
@@ -122,7 +122,7 @@ class TickerPuller(abc.ABC):
             news=self._news,
             holder=self._holder,
             financial=self._financial,
-            recommendation=self._recommendation,
+            rating=self._rating,
             option=self._option
         )
 
@@ -152,9 +152,9 @@ class TickerPuller(abc.ABC):
             insider_roster_holders = self.ticker.insider_roster_holders
         )
         
-    def _download_recommendations(self):
+    def _download_ratings(self):
 
-        self._recommendation = RecommendationData(
+        self._rating = RatingData(
             recommendations=self.ticker.recommendations,
             recommendations_summary=self.ticker.recommendations_summary,
             upgrades_downgrades=self.ticker.upgrades_downgrades)
