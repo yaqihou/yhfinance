@@ -7,9 +7,10 @@ import pathlib
 import pandas as pd
 
 
-from .task_config import TICKER_CONFIGS, HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
 from .db_messenger import DBMessenger as DB
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
+from .defs import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
+from .user_config import TICKER_CONFIGS
 
 logger = logging.getLogger("yfinance-backup.job_generator")
 

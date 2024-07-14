@@ -198,14 +198,8 @@ class TickerPuller(abc.ABC):
         _ = self.ticker.history(interval="1d", period='1d')
         _ = self.ticker.history_metadata
 
-        # Some special treatment
-        _df_history = self.ticker.history(**self.job.history_args).reset_index()
-        if 'Date' in _df_history.columns:  # the index is Date for day history and Datetime for intraday
-            _df_history.rename(columns={'Date': 'Datetime'}, inplace=True)
-        _df_history['Date'] = _df_history['Datetime'].apply(lambda x: x.date())
-        
         self._history = HistoryData(
-            history=_df_history,
+            history_raw=self.ticker.history(**self.job.history_args),
             # actions=self.ticker.actions,
             args=self.job.history_args,
             metadata=self.ticker.history_metadata)

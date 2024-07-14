@@ -3,8 +3,6 @@ import datetime as dt
 from .defs import TickerType, UserConfig
 from .tasks_preset import TaskPreset
 
-
-
 TICKER_CONFIGS = [
     UserConfig(
         ticker_name = 'TQQQ',

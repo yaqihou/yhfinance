@@ -189,26 +189,68 @@ class NewsData(BaseData):
 
 @dataclass(kw_only=True)
 class HistoryData(BaseData):
-    history: pd.DataFrame
+    history_raw: pd.DataFrame
     # actions -- actions are included in 
     # actions: pd.DataFrame  
     #
     args: dict
     metadata: dict
 
+    def __post_init__(self):
+
+        if self.history_raw is not None and not self.history_raw.empty:
+            # Add special treatment to the raw data
+            _df_history = self.history_raw.reset_index().copy()
+            if 'Date' in _df_history.columns:  # the index is Date for day history and Datetime for intraday
+                _df_history.rename(columns={'Date': 'Datetime'}, inplace=True)
+            _df_history['Date'] = _df_history['Datetime'].apply(lambda x: x.date())
+
+            _interval = self.args['interval']
+            _is_intraday = not (_interval in {'1d', '5d', '1wk', '1mo', '3mo'})
+
+            # add the indicator for period type
+            if (self.metadata.get('hasPrePostMarketData', False)
+                and (self.metadata.get('currentTradingPeriod', None) is not None)
+                ):
+
+                _df_history['period_type'] = ''
+                for period_type, _dict in self.metadata['currentTradingPeriod'].items():
+
+                    print(period_type)
+                    print(_dict)
+
+                    # TODO - may need to worry about the time zone offset
+                    _start = pd.Timestamp(_dict['start'], unit='s', tz='America/New_York')
+                    _end = pd.Timestamp(_dict['end'], unit='s', tz='America/New_York')
+
+                    logger.debug('Assigning period type %s from %s to %s',
+                                 period_type, str(_start), str(_end))
+
+                    # Use open end at end_time as the last entry is 1 min earlier
+                    _df_history.loc[
+                        (_df_history['Datetime'] >= _start) & (_df_history['Datetime'] < _end),
+                        'period_type'] = period_type
+            else:
+                logger.debug('Did not add PrePost trading period type to DB')
+
+            # don't save action for intraday history
+            if _is_intraday:
+                _cols = [x for x in _df_history.columns
+                        if x.upper() not in {"DIVIDENDS", "STOCK SPLITS", "CAPITAL GAINS"}]
+            else:
+                _cols = _df_history.columns
+
+            self.history = _df_history[_cols].copy()
+
+        else:
+            logger.debug("Found empty history DataFrame, skip post-processing")
+        
+
     def _prepare_df_for_db(self, job: JobSetup):
 
         # Only select OLHC data for intraday history
-        _interval = self.args['interval']
-        _is_intraday = not (_interval in {'1d', '5d', '1wk', '1mo', '3mo'})
-        # don't save action for intraday history
-        if _is_intraday:
-            _cols = [x for x in self.history.columns
-                     if x.upper() not in {"DIVIDENDS", "STOCK SPLITS", "CAPITAL GAINS"}]
-        else:
-            _cols = self.history.columns
-        _df_history = self.history[_cols].copy()
 
+        _interval = self.args['interval']
         _df_args = pd.DataFrame.from_dict({k: [v] for k,v in self.args.items()})
 
         # Special Treatment for history_metadata
@@ -233,7 +275,7 @@ class HistoryData(BaseData):
         _df_meta = pd.DataFrame.from_dict(_meta_dict)
 
         ret = [
-            (_df_history, TableName.History.PRICE_TABLE_MAPPING[_interval]),
+            (self.history, TableName.History.PRICE_TABLE_MAPPING[_interval]),
             (_df_args, TableName.History.ARGS),
             (_df_meta, TableName.History.METADATA_TABLE_MAPPING[_interval]),
         ]

@@ -66,3 +66,5 @@ class DBMessenger:
                     );""")
 
             
+
+    # def _drop_all_tables(self):
