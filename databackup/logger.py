@@ -5,7 +5,7 @@ import logging
 class MyLoggerSetup:
 
     default_formatter = logging.Formatter(
-        fmt='%(asctime)s | %(levelname)s | %(message)s',
+        fmt='%(asctime)s |  %(name)s::%(levelname)s | %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p')
 
     def __init__(self):
