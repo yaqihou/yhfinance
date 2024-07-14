@@ -80,7 +80,7 @@ class HistoryExtraOptions:
     # https://github.com/ranaroussi/yfinance/wiki/Ticker
 
     # Include Pre and Post market data in results?
-    prepost: bool = True
+    prepost: bool = False
     # Include Dividends and Stock Splits in results?
     actions: bool = False	
     # Dividend-adjust all OHLC automatically?	

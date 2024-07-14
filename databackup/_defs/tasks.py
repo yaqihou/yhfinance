@@ -71,7 +71,6 @@ class BaseTask:
 
 @dataclass(kw_only=True)
 class HistoryTask(BaseTask):
-    download_switch: int = DownloadSwitch.PRICE
 
     def get_args(self):
         return {
@@ -86,3 +85,14 @@ class IntraDayHistoryTask(HistoryTask):
     past_days: int = 0 # Default to backup current days' data
     backup_freq: BackupFrequency = BackupFrequency.DAILY
     download_switch: int = DownloadSwitch.HISTORY
+
+    history_extra_options: HistoryExtraOptions = HistoryExtraOptions(prepost=True)
+
+
+@dataclass(kw_only=True)
+class DayHistoryTask(HistoryTask):
+    past_days: int = 6 # Default to backup current days' data
+    backup_freq: BackupFrequency = BackupFrequency.WEEKLY
+    download_switch: int = DownloadSwitch.PRICE
+
+    history_extra_options: HistoryExtraOptions = HistoryExtraOptions(actions=True)

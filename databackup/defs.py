@@ -4,8 +4,18 @@ from typing import Optional
 
 # Offer the entry to import
 from ._defs.tickers import TickerType, Period, Interval, DownloadSwitch, HistoryExtraOptions
-from ._defs.tasks import BackupFrequency, BaseTask, HistoryTask, IntraDayHistoryTask
+from ._defs.tasks import BackupFrequency, BaseTask, HistoryTask, DayHistoryTask, IntraDayHistoryTask
 from ._defs.tables import TableName
+
+
+@dataclass
+class UserConfig:
+    ticker_name: str
+    ticker_type: TickerType
+    added_date: dt.date| str
+
+    tasks: list[BaseTask | HistoryTask | DayHistoryTask | IntraDayHistoryTask]
+    notes: str = ""
 
 
 class JobStatus:
@@ -13,16 +23,6 @@ class JobStatus:
     INIT = 0
     SUCCESS = 1
     FAIL = 2
-
-
-@dataclass
-class TickerConfig:
-    ticker_name: str
-    ticker_type: TickerType
-    added_date: dt.date| str
-
-    tasks: list[BaseTask]
-    notes: str = ""
 
 
 @dataclass(kw_only=True)

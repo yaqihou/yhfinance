@@ -7,7 +7,7 @@ import pathlib
 import pandas as pd
 
 
-from .task_config import TICKER_CONFIGS, HistoryTask, IntraDayHistoryTask, BaseTask, TickerConfig
+from .task_config import TICKER_CONFIGS, HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
 from .db_messenger import DBMessenger as DB
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
 
@@ -17,7 +17,7 @@ class JobGenerator:
 
     def __init__(self, ticker_configs=TICKER_CONFIGS):
         self._jobs = []
-        self.ticker_configs: list[TickerConfig] = ticker_configs
+        self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
 
     def _parse_history_range_args(self, task) -> dict:
