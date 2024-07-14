@@ -34,17 +34,31 @@ class JobGenerator:
             if all(map(lambda x: x is None, [task.period, task.start, task.end])):
                 if task.past_days < 0:
                     logger.error("Past days is not set")
-                    raise ValueError("")
+                    raise ValueError("Given input are invalid: period, start and end are all None and past_days is invalid")
 
             # start / end has higher priority than period
-            if task.start is None and task.end is None and task.past_days < 0 and task.period is not None:  # only Period is not None
+            if (task.start is None
+                and task.end is None
+                and task.past_days < 0
+                and task.period is not None):  # only Period is not None
                 _period = task.period
             else:
                 # All others cases:
                 # - start and end are both None, 
                 # Guarantee the largest coverage of result
-                _end = dt.datetime.combine(pd.to_datetime(task.end or self.run_datetime.date()), dt.time.max)
-                _start = dt.datetime.combine(pd.to_datetime(task.start or _end - dt.timedelta(days=task.past_days)), dt.time.min)
+                if task.end is not None:
+                    _end = pd.to_datetime(task.end)
+                else:
+                    _end = dt.datetime.combine(
+                        self.run_datetime.date() - dt.timedelta(days=task.end_day_offset),
+                        dt.time.max)
+
+                if task.start is not None:
+                    _start = pd.to_datetime(task.start)
+                else:
+                    _start = dt.datetime.combine(
+                        _end - dt.timedelta(days=task.past_days),
+                        dt.time.min)
 
         return {
             'period': _period,
@@ -86,8 +100,7 @@ class JobGenerator:
 
         return JobSetup(**args)
 
-    def _need_run(self, task) -> bool:
-        """Test if the given task need to be run"""
+    def _has_enough_gap_since_last_run(self, task):
 
         with DB() as db:
             df = db.read_sql(f"""
@@ -110,18 +123,41 @@ class JobGenerator:
 
         return ret
 
+    def _check_backup_conditions(self, task) -> list[bool]:
+        """Return the list of results if each backup condition is met"""
+
+        res = task.backup_cond.check(self.run_datetime)
+        for k, v in res.items():
+            if not v:
+                logger.debug("Condition %s is not met as of %s", k, str(self.run_datetime))
+
+        return list(res.values())
+    
+    def _is_valid_task(self, task) -> bool:
+        """Test if the given task need to be run"""
+
+        satisfy_backup_freq = self._has_enough_gap_since_last_run(task)
+        satisfy_conditions = self._check_backup_conditions(task)
+
+        ret = all([satisfy_backup_freq, *satisfy_conditions])
+        if not ret:
+            logger.info("Task %s is not needed to be run at this moment", task.name)
+        else:
+            logger.info("Task %s meet all backup specs and is added", task.name)
+
+        return ret
+
     def create_jobs(self):
 
         for ticker_config in self.ticker_configs:
             logger.debug("Found %d tasks defined for Ticker %s (%s)",
                          len(ticker_config.tasks), ticker_config.ticker_name, ticker_config.ticker_type.value)
 
-            _new_jobs = []
-            for task in filter(self._need_run, ticker_config.tasks):
-                _new_jobs.append(
-                    self._gen_job(ticker_config.ticker_name, ticker_config.ticker_type, task)
-                )
-
+            _new_jobs = [
+                self._gen_job(ticker_config.ticker_name, ticker_config.ticker_type, task)
+                for task in ticker_config.tasks
+                if self._is_valid_task(task)
+            ]
             logger.info("Generated %d new jobs for Ticker %s", len(_new_jobs), ticker_config.ticker_name)
             self._jobs += _new_jobs
 

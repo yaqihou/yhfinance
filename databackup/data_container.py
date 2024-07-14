@@ -209,17 +209,14 @@ class HistoryData(BaseData):
             _is_intraday = not (_interval in {'1d', '5d', '1wk', '1mo', '3mo'})
 
             # add the indicator for period type
+            _df_history['period_type'] = 'regular'
             if (self.metadata.get('hasPrePostMarketData', False)
                 and (self.metadata.get('currentTradingPeriod', None) is not None)
                 ):
 
-                _df_history['period_type'] = ''
                 for period_type, _dict in self.metadata['currentTradingPeriod'].items():
 
-                    print(period_type)
-                    print(_dict)
-
-                    # TODO - may need to worry about the time zone offset
+                    # TODO - may need to setup time zone based on the gmtoffset field
                     _start = pd.Timestamp(_dict['start'], unit='s', tz='America/New_York')
                     _end = pd.Timestamp(_dict['end'], unit='s', tz='America/New_York')
 

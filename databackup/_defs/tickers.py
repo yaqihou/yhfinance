@@ -33,6 +33,18 @@ class Period(Enum):
     MAX = 'max'
 
 
+class TickerGroup(Enum):
+    """Not a stirct allocation as the traditional sector definition, more like a moniker"""
+
+    FINANCIAL = 'Financial'
+    TECH = 'Tech'
+    SEMI_CONDUCTOR = 'Semiconductor'
+    ENERGY = 'Energy'
+    CONSUMER = 'Consumer'
+    HEALTH = 'HealthCare'
+    INDUSTRIAL = 'INDUSTRIAL'
+    GAME = 'Game'
+
 class Interval(Enum):
 
     MINUTE = "1m"
@@ -71,7 +83,6 @@ class DownloadSwitch:
     RATING: int = 1 << 5
     OPTION: int = 1 << 6
 
-    PRICE: int = HISTORY | INFO | HOLDER
     ALL: int = HISTORY | INFO | NEWS | HOLDER | FINANCIAL | RATING | OPTION
 
 

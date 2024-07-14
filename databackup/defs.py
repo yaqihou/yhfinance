@@ -4,7 +4,8 @@ from typing import Optional
 
 # Offer the entry to import
 from ._defs.tickers import TickerType, Period, Interval, DownloadSwitch, HistoryExtraOptions
-from ._defs.tasks import BackupFrequency, BaseTask, HistoryTask, DayHistoryTask, IntraDayHistoryTask
+from ._defs.tasks import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
+from ._defs.tasks import BackupCondition, BackupFrequency
 from ._defs.tables import TableName
 
 
@@ -12,9 +13,10 @@ from ._defs.tables import TableName
 class UserConfig:
     ticker_name: str
     ticker_type: TickerType
+    # ticker_sect: ""
     added_date: dt.date| str
 
-    tasks: list[BaseTask | HistoryTask | DayHistoryTask | IntraDayHistoryTask]
+    tasks: list[BaseTask]
     notes: str = ""
 
 
