@@ -134,8 +134,10 @@ class TableName:
     def to_list(cls, include_meta: bool = False):
 
         ret = []
-        for t in [cls.Option, cls.News, cls.History, cls.Holder, cls.Info, cls.Financial, cls.Rating]:
+        for t in [cls.Option, cls.News, cls.History, cls.Holder, cls.Financial, cls.Rating]:
             ret += t.to_list()
+
+        ret.append(cls.Info)
 
         if include_meta:
             ret += cls.Meta.to_list()
@@ -143,7 +145,7 @@ class TableName:
         return ret
 
 
-class TableDefinition:
+class MetaTableDefinition:
 
     run_log = f"""
     CREATE TABLE "{TableName.Meta.run_log}" (
