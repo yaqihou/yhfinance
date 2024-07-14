@@ -108,10 +108,16 @@ class RatingTableName:
         return [cls.RECOMMENDATIONS, cls.RECOMMENDATIONS_SUMMARY, cls.UPGRADES_DOWNGRADES]
 
 
-# class MetaTableName:
+class MetaTableName:
 
-#     @classmethod
-#     def to_list(cls):
+    run_log = 'meta_runLog'
+    tickers = 'meta_tickers'
+    tasks = 'meta_tasks'
+
+    @classmethod
+    def to_list(cls):
+        return [cls.run_log, cls.tasks, cls.tickers]
+
 
 class TableName:
 
@@ -122,3 +128,47 @@ class TableName:
     Info = 'data_info'
     Financial = FinancialTableName
     Rating = RatingTableName
+    Meta = MetaTableName
+
+    @classmethod
+    def to_list(cls, include_meta: bool = False):
+
+        ret = []
+        for t in [cls.Option, cls.News, cls.History, cls.Holder, cls.Info, cls.Financial, cls.Rating]:
+            ret += t.to_list()
+
+        if include_meta:
+            ret += cls.Meta.to_list()
+
+        return ret
+
+
+class TableDefinition:
+
+    run_log = f"""
+    CREATE TABLE "{TableName.Meta.run_log}" (
+        "ticker_name"	TEXT,
+        "ticker_type"	TEXT,
+        "run_date"	DATE,
+        "run_datetime"	TIMESTAMP,
+        "run_intraday_version"	INTEGER,
+        "run_status"	INTEGER,
+        "task_name"	TEXT
+    );"""
+
+    tickers = f"""
+    CREATE TABLE "{TableName.Meta.tickers}" (
+        "ticker_id"	INTEGER NOT NULL UNIQUE,
+        "ticker_name"	TEXT,
+        "ticker_type"	TEXT,
+        PRIMARY KEY("ticker_id" AUTOINCREMENT)
+    );"""
+
+    tasks = f"""
+    CREATE TABLE "{TableName.Meta.tasks}" (
+        "task_id"	INTEGER NOT NULL UNIQUE,
+        "task_name"	TEXT,
+        "backup_freq"	TEXT,
+        ""
+        PRIMARY KEY("ticker_id" AUTOINCREMENT)
+    );"""

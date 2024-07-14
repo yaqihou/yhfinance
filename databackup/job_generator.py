@@ -6,9 +6,10 @@ import logging
 import pathlib
 import pandas as pd
 
+
 from .task_config import TICKER_CONFIGS, HistoryTask, IntraDayHistoryTask, BaseTask, TickerConfig
 from .db_messenger import DBMessenger as DB
-from .defs import JobSetup, DownloadSwitch, JobStatus
+from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
 
 logger = logging.getLogger("yfinance-backup.job_generator")
 
@@ -51,19 +52,24 @@ class JobGenerator:
         }
 
     def _gen_job(self,
-               ticker_name,
-               ticker_type,
+               ticker_name: str,
+               ticker_type: TickerType,
                task: BaseTask | HistoryTask | IntraDayHistoryTask) -> JobSetup:
         """Generate the job spec for the given task"""
 
         with DB() as db:
-            df = db.read_sql(f"""
-            SELECT COUNT(1)
-            FROM meta_runLog
+            sql = f"""
+            SELECT COUNT(1) AS cnt
+            FROM [{TableName.Meta.run_log}]
             WHERE task_name = '{task.name}'
                 AND run_status = {JobStatus.SUCCESS}
                 AND run_date = '{self.run_datetime.date()}'
-            """)
+                AND ticker_name = '{ticker_name}'
+                AND ticker_type = '{ticker_type.value}'
+            """
+            df = db.read_sql(sql)
+
+        print(sql)
 
         if df.empty:  intraday_ver = 1
         else:
@@ -87,7 +93,7 @@ class JobGenerator:
         with DB() as db:
             df = db.read_sql(f"""
             SELECT MAX(run_datetime)
-            FROM meta_runLog
+            FROM [{TableName.Meta.run_log}]
             WHERE task_name = '{task.name}'
                 AND run_status = 1
             """)
@@ -97,9 +103,11 @@ class JobGenerator:
             logger.debug("There is no successfull previous runLog for task %s", task.name)
             ret = True
         else:
-            if (self.run_datetime - df.iloc[0, 0]) > task.backup_freq:
+            if (self.run_datetime - pd.to_datetime(df.iloc[0, 0])) > task.backup_freq.value:
                 logger.debug("Last run is outside wait window for task %s", task.name)
                 ret = True
+            else:
+                logger.debug("Task %s is too new to initiate", task.name)
 
         return ret
 

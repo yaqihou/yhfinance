@@ -5,6 +5,8 @@ import sqlite3
 import pandas as pd
 import datetime as dt
 
+from .defs import TableName
+
 DB_NAME = os.path.join(
     os.environ.get('HOME', '.'), 'Dropbox', '66-DBs', 'FinDB.db'
 )
@@ -50,10 +52,10 @@ class DBMessenger:
     def _on_init_check_meta_table(self):
         """Check if the basic meta table is correctly setup in DB"""
 
-        if not _exist_table():
+        if not self._exist_table(TableName.Meta.run_log):
             with self.conn as conn:
-                conn.execute("""
-                    CREATE TABLE "meta_runLog" (
+                conn.execute(f"""
+                    CREATE TABLE "{TableName.Meta.run_log}" (
                             "ticker_name"	TEXT,
                             "ticker_type"	TEXT,
                             "run_date"	DATE,
@@ -62,3 +64,5 @@ class DBMessenger:
                             "run_status"	INTEGER,
                             "task_name"	TEXT
                     );""")
+
+            
