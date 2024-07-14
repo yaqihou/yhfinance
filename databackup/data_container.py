@@ -206,7 +206,7 @@ class HistoryData(BaseData):
             _df_history['Date'] = _df_history['Datetime'].apply(lambda x: x.date())
 
             _interval = self.args['interval']
-            _is_intraday = not (_interval in {'1d', '5d', '1wk', '1mo', '3mo'})
+            _is_intraday = _interval[-1] in {'m', 'h'}
 
             # add the indicator for period type
             _df_history['period_type'] = 'regular'
@@ -228,7 +228,7 @@ class HistoryData(BaseData):
                         (_df_history['Datetime'] >= _start) & (_df_history['Datetime'] < _end),
                         'period_type'] = period_type
             else:
-                logger.debug('Did not add PrePost trading period type to DB')
+                logger.debug('Did not find required data to assign trading period, default to regular')
 
             # don't save action for intraday history
             if _is_intraday:

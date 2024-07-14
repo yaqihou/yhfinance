@@ -112,11 +112,12 @@ class MetaTableName:
 
     run_log = 'meta_runLog'
     tickers = 'meta_tickers'
+    tickers_info = 'meta_tickersInfo'
     tasks = 'meta_tasks'
 
     @classmethod
     def to_list(cls):
-        return [cls.run_log, cls.tasks, cls.tickers]
+        return [cls.run_log, cls.tasks, cls.tickers, cls.tickers_info]
 
 
 class TableName:
