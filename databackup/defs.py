@@ -6,7 +6,7 @@ from typing import Optional
 from ._defs.tickers import TickerType, Period, Interval, DownloadSwitch, HistoryExtraOptions
 from ._defs.tasks import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
 from ._defs.tasks import BackupCondition, BackupFrequency
-from ._defs.tables import TableName
+from ._defs.tables import TableName, MetaTableDefinition
 
 
 @dataclass

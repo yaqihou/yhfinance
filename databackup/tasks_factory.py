@@ -93,8 +93,27 @@ class TaskPreset:
         ]
 
     @property
+    def intraday_crypto_hist_tasks(self) -> list[IntraDayHistoryTask]:
+        return [
+            self.INTRADAY_CRYPTO_HIST_M01,
+            self.INTRADAY_CRYPTO_HIST_M02,
+            self.INTRADAY_CRYPTO_HIST_M05,
+            self.INTRADAY_CRYPTO_HIST_M15,
+            self.INTRADAY_CRYPTO_HIST_M30,
+            self.INTRADAY_CRYPTO_HIST_M60,
+            self.INTRADAY_CRYPTO_HIST_M90
+        ]
+
+    @property
     def intraday_tasks(self) -> list[BaseTask]:
         return [self.OPTION_3X_PER_DAY, self.NEWS_4X_PER_DAY] + self.intraday_hist_tasks
+
+    @property
+    def intraday_crypto_tasks(self) -> list[BaseTask]:
+        return [
+            # Crypto Currency do not need option
+            # self.OPTION_3X_PER_DAY,
+            self.NEWS_4X_PER_DAY] + self.intraday_crypto_hist_tasks
 
     @property
     def weekly_tasks(self) -> list[BaseTask]:
@@ -103,3 +122,7 @@ class TaskPreset:
     @property
     def all_tasks(self) -> list[BaseTask]:
         return self.intraday_tasks + self.weekly_tasks + [self.DAY_HIST_DAILY, self.FINANCIAL_MONTHLY]
+
+    @property
+    def all_tasks_crypto(self) -> list[BaseTask]:
+        return self.intraday_crypto_tasks + [self.DAY_HIST_DAILY]

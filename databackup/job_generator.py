@@ -112,7 +112,7 @@ class JobGenerator:
 
         ret = False
         if df.empty or df.iloc[0, 0] is None:
-            logger.debug("There is no successfull previous runLog for task %s", task.name)
+            logger.debug("There is no successful runs in the log for task %s", task.name)
             ret = True
         else:
             if (self.run_datetime - pd.to_datetime(df.iloc[0, 0])) > task.backup_freq.value:
@@ -141,9 +141,9 @@ class JobGenerator:
 
         ret = all([satisfy_backup_freq, *satisfy_conditions])
         if not ret:
-            logger.info("Task %s is not needed to be run at this moment", task.name)
+            logger.info("Task %s will NOT be added", task.name)
         else:
-            logger.info("Task %s meet all backup specs and is added", task.name)
+            logger.info("Task %s meet all backup specs and will be added", task.name)
 
         return ret
 
@@ -158,6 +158,7 @@ class JobGenerator:
                 for task in ticker_config.tasks
                 if self._is_valid_task(task)
             ]
+
             logger.info("Generated %d new jobs for Ticker %s", len(_new_jobs), ticker_config.ticker_name)
             self._jobs += _new_jobs
 
