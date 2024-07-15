@@ -26,10 +26,9 @@ from user_config import USER_TICKER_CONFIGS
 
 all_ticker_list = [(config.ticker_name, config.ticker_type) for config in USER_TICKER_CONFIGS]
 
-# for ticker_name, ticker_type in all_ticker_list:
-for ticker_name, ticker_type in all_ticker_list[:1]:
+for ticker_name, ticker_type in all_ticker_list:
     task_factory = TaskForNewTicker(ticker_name, ticker_type)
-    tasks = task_factory.all_tasks
+    tasks = task_factory.get_day_tasks()
 
     config = [UserConfig(
         ticker_name = ticker_name,

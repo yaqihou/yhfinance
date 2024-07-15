@@ -27,6 +27,7 @@ USER_TICKER_CONFIGS = [
         ticker_type = TickerType.ETF,
         tasks=task_preset_factory.all_tasks
     ) for ticker in etf_tickers],
+    # Stock
     *[UserConfig(
         ticker_name = ticker,
         ticker_type = TickerType.STOCK,
@@ -42,11 +43,13 @@ USER_TICKER_CONFIGS = [
         ticker_type = TickerType.STOCK,
         tasks=task_preset_factory.all_tasks
     ) for ticker in airlines_stock_tickers],
+    # Index
     *[UserConfig(
         ticker_name = ticker,
         ticker_type = TickerType.Index,
         tasks=task_preset_factory.all_tasks
     ) for ticker in idx_tickers],
+    # Crypto
     *[UserConfig(
         ticker_name = ticker,
         ticker_type = TickerType.Crypto,
