@@ -119,12 +119,14 @@ class BaseTask:
     backup_cond: BackupCondition
     
     download_switch: int
-
     name: Optional[str] = None
+
     # History Input
     interval: Interval = Interval.DAY
+    # Below argument used to generate period / start / end automatically
     past_days: int = -1
     end_day_offset: int = 0  # if 0, end day will be EoD of run date, which may not be good for Crypto
+
     # The below arguments would be useful to create ad hoc tasks (like to run for a customized period)
     period: Optional[Period] = None  # Period have the highest priority
     start: Optional[dt.datetime | str | int] = None
@@ -138,14 +140,75 @@ class BaseTask:
         if self.name is None:
             self.name = f'adhoc_task_{dt.datetime.today()}'
 
-    def get_args(self):
+    def get_args(self, run_datetime: dt.datetime):
         return {
             'download_switch': self.download_switch,
             'download_full_text_news': self.download_full_text_news,
             'interval': self.interval,
+            **self._parse_history_range_args(run_datetime),
             'history_extra_options': self.history_extra_options
         }
 
+    def _parse_history_range_args(self, run_datetime) -> dict:
+
+        _period, _start, _end = None, None, None
+        # Only history download need to parse the date range
+        if self.download_switch & DownloadSwitch.HISTORY:
+
+            # The priority is
+            # ( Start | End > Period ) > Past Days
+
+            # Sanity check for input
+            if all(map(lambda x: x is None, [self.period, self.start, self.end])):
+                if self.past_days < 0:
+                    raise ValueError("Given input are invalid: period, start and end are all None and past_days is invalid")
+
+            # start / end has higher priority than period
+            if (self.start is None
+                and self.end is None
+                and self.past_days < 0
+                and self.period is not None):  # only Period is not None
+                _period = self.period
+            else:
+                # All others cases:
+                # - start and end are both None, 
+                # Guarantee the largest coverage of result
+                if self.end is not None:
+                    _end = self._parse_input_date(self.end, dt.time.max)
+                else:
+                    _end = dt.datetime.combine(
+                        run_datetime.date() - dt.timedelta(days=self.end_day_offset),
+                        dt.time.max)
+
+                if self.start is not None:
+                    _start = self._parse_input_date(self.start, dt.time.min)
+                else:
+                    _start = dt.datetime.combine(
+                        _end - dt.timedelta(days=self.past_days),
+                        dt.time.min)
+
+        return {
+            'period': _period,
+            'start': _start,
+            'end': _end
+        }
+
+    def _parse_input_date(self, date: str | dt.datetime | dt.date, time: Optional[dt.time] = None) -> dt.datetime:
+
+        if isinstance(date, dt.datetime):
+            return date
+        elif isinstance(date, dt.date):
+            _time = time or dt.time.min 
+            return dt.datetime.combine(date, _time)
+
+        elif isinstance(date, str):
+            _date = pd.to_datetime(date).to_pydatetime()
+
+            if _date == dt.datetime.combine(_date.date(), dt.time.min):
+                _time = time or dt.time.min 
+                return dt.datetime.combine(_date, _time)
+
+        raise ValueError(f'Given input {date} is not valid')
 
 @dataclass(kw_only=True)
 class HistoryTask(BaseTask):

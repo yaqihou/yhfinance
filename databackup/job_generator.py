@@ -19,70 +19,7 @@ class JobGenerator:
         self._jobs = []
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
-
-    def _parse_input_date(self, date: str | dt.datetime | dt.date, time: Optional[dt.time] = None) -> dt.datetime:
-
-        if isinstance(date, dt.datetime):
-            return date
-        elif isinstance(date, dt.date):
-            _time = time or dt.time.min 
-            return dt.datetime.combine(date, _time)
-
-        elif isinstance(date, str):
-            _date = pd.to_datetime(date).to_pydatetime()
-
-            if _date == dt.datetime.combine(_date.date(), dt.time.min):
-                _time = time or dt.time.min 
-                return dt.datetime.combine(_date, _time)
-
-        raise ValueError(f'Given input {date} is not valid')
-        
-    def _parse_history_range_args(self, task) -> dict:
-
-        _period, _start, _end = None, None, None
-        # Only history download need to parse the date range
-        if task.download_switch & DownloadSwitch.HISTORY:
-
-            # The priority is
-            # ( Start | End > Period ) > Past Days
-
-            # Sanity check for input
-            if all(map(lambda x: x is None, [task.period, task.start, task.end])):
-                if task.past_days < 0:
-                    logger.error("Past days is not set")
-                    raise ValueError("Given input are invalid: period, start and end are all None and past_days is invalid")
-
-            # start / end has higher priority than period
-            if (task.start is None
-                and task.end is None
-                and task.past_days < 0
-                and task.period is not None):  # only Period is not None
-                _period = task.period
-            else:
-                # All others cases:
-                # - start and end are both None, 
-                # Guarantee the largest coverage of result
-                if task.end is not None:
-                    # TODO - parse input: could be str / datetime
-                    _end = self._parse_input_date(task.end, dt.time.max)
-                else:
-                    _end = dt.datetime.combine(
-                        self.run_datetime.date() - dt.timedelta(days=task.end_day_offset),
-                        dt.time.max)
-
-                if task.start is not None:
-                    _start = self._parse_input_date(task.start, dt.time.min)
-                else:
-                    _start = dt.datetime.combine(
-                        _end - dt.timedelta(days=task.past_days),
-                        dt.time.min)
-
-        return {
-            'period': _period,
-            'start': _start,
-            'end': _end
-        }
-
+  
     def _gen_job(self,
                ticker_name: str,
                ticker_type: TickerType,
@@ -111,8 +48,7 @@ class JobGenerator:
             'run_datetime' : self.run_datetime,
             'run_intraday_version': intraday_ver,
             'task'         : task,
-            **task.get_args(),
-            **self._parse_history_range_args(task)
+            **task.get_args(self.run_datetime),
         }
 
         return JobSetup(**args)

@@ -99,8 +99,7 @@ class JobSetup:
             'run_date': self.run_date,
             'run_datetime': self.run_datetime,
             'run_intraday_version': self.run_intraday_version,
-            'task_name': self.task.name,
-            'download_switch': self.download_switch
+            'task_name': self.task.name
         }
         
         
