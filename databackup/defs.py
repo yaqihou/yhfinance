@@ -39,7 +39,7 @@ class JobSetup:
     run_intraday_version: int
     task: BaseTask | HistoryTask | IntraDayHistoryTask
 
-    # Setup for history
+    # History Arguments
     # NOTE - similar info in task field as well,
     #        but below are parsed from task to be used directly
     interval: Interval = Interval.DAY
@@ -93,15 +93,14 @@ class JobSetup:
 
     @property
     def metainfo(self) -> dict:
-        # TODO - when dumping to DB, using ticker name is not good. Need to replace it
-        #        with index
         return {
             'ticker_name': self.ticker_name,
             'ticker_type': self.ticker_type.value,
             'run_date': self.run_date,
             'run_datetime': self.run_datetime,
             'run_intraday_version': self.run_intraday_version,
-            'task_name': self.task.name
+            'task_name': self.task.name,
+            'download_switch': self.download_switch
         }
         
         
