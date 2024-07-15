@@ -23,7 +23,8 @@ class JobStatus:
 
     INIT = 0
     SUCCESS = 1
-    FAIL = 2
+    SUCCESS_PULL = 2
+    FAIL = 3
 
 
 @dataclass(kw_only=True)
@@ -54,9 +55,6 @@ class JobSetup:
     @property
     def run_date(self) -> dt.date:
         return self.run_datetime.date()
-
-    # @property
-    # def is_intraday(self) -> bool:
 
     def __post_init__(self):
         # Only need to check if download history data

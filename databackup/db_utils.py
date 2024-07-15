@@ -141,4 +141,4 @@ class DBMaintainer:
         with self.db.conn as conn:
             for tbl_name in TableName.to_list(include_meta=include_meta):
                 logger.debug('Try to drop table %s', tbl_name)
-                conn.execute(f'DROP IF EXISTS {tbl_name}')
+                conn.execute(f'DROP TABLE IF EXISTS {tbl_name}')
