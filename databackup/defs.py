@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import datetime as dt
 from typing import Optional
+from enum import Enum
 
 # Offer the entry to import
 from ._defs.tickers import TickerType, Period, Interval, DownloadSwitch, HistoryExtraOptions
@@ -19,7 +20,7 @@ class UserConfig:
     notes: str = ""
 
 
-class JobStatus:
+class JobStatus(Enum):
 
     INIT = 0
     SUCCESS = 1
@@ -38,6 +39,7 @@ class JobSetup:
     run_datetime: dt.datetime 
     run_intraday_version: int
     task: BaseTask | HistoryTask | IntraDayHistoryTask
+    download_switch: int = DownloadSwitch.ALL
 
     # History Arguments
     # NOTE - similar info in task field as well,
@@ -50,7 +52,6 @@ class JobSetup:
 
     # Download setup
     download_full_text_news: bool = False
-    download_switch: int = DownloadSwitch.ALL
 
     @property
     def run_date(self) -> dt.date:

@@ -1,4 +1,6 @@
+from collections import Counter
 import pandas as pd
+from tabulate import tabulate
 
 from .logger import MyLogger
 from .job_generator import JobGenerator
@@ -19,15 +21,21 @@ class DataBackup:
     def run(self):
 
         self.jobs = self.job_generator.create_jobs()
+
+        status_lst = []
         for job in self.jobs:
-            self._run_pulling_job(job)
+            status_lst.append(self._run_pulling_job(job))
 
+        logger.info('Databack finished for %d jobs in total', len(self.jobs))
+        counter = Counter(status_lst)
+        _summary = [[k.name, v] for k, v in counter.items()]
+        logger.info("The summary is as below:\n%s", tabulate(_summary, headers=['Status', 'Count']))
 
-    def _run_pulling_job(self, job: JobSetup):
+    def _run_pulling_job(self, job: JobSetup) -> JobStatus:
 
         puller = TickerPuller(job)
 
-        status: int = JobStatus.FAIL
+        status: JobStatus = JobStatus.FAIL
         try:
             puller.download()
         except Exception as e:
@@ -44,7 +52,9 @@ class DataBackup:
             else:
                 status = JobStatus.SUCCESS
 
-        self._update_job_status_to_db(job, status)
+        self._update_job_status_to_db(job, status.value)
+
+        return status
 
     def _update_job_status_to_db(self, job: JobSetup, status: int):
         _df = pd.DataFrame.from_dict({

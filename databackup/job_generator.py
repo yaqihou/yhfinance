@@ -31,7 +31,7 @@ class JobGenerator:
             SELECT COUNT(1) AS cnt
             FROM [{TableName.Meta.run_log}]
             WHERE task_name = '{task.name}'
-                AND run_status = {JobStatus.SUCCESS}
+                AND run_status = {JobStatus.SUCCESS.value}
                 AND run_date = '{self.run_datetime.date()}'
                 AND ticker_name = '{ticker_name}'
                 AND ticker_type = '{ticker_type.value}'
