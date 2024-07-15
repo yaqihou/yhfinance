@@ -2,7 +2,7 @@
 import os
 import sqlite3
 
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 import pandas as pd
 import datetime as dt
@@ -47,7 +47,7 @@ class DB:
                 logger.debug('MetaTable %s does not exist, creating a new one', TableName.Meta.run_log)
                 conn.execute(MetaTableDefinition.run_log)
 
-    def update_job_status_to_db(self, job: JobSetup, status: int):
+    def add_job_status(self, job: JobSetup, status: int):
         _df = pd.DataFrame.from_dict({
             'run_status': [status],
             **{k: [v] for k, v in job.metainfo.items()}
@@ -55,6 +55,63 @@ class DB:
 
         with self.conn as conn:
             _df.to_sql(TableName.Meta.run_log, conn, if_exists='append', index=False)
+
+    def add_df(self, df: pd.DataFrame, table_name: str, if_exists: Literal['append', 'fail', 'replace'] = 'append'):
+
+        logger.debug('Dumping DataFrame to %s', table_name)
+
+        if if_exists == 'append':
+
+            if self._exist_table(table_name):
+               self._reconcile_df_column_names(df, table_name)
+
+            try:
+                with self.conn as conn:
+                    df.to_sql(table_name, conn, if_exists=if_exists, index=False)
+            except Exception as e:
+                logger.error('Encountered error when dumping DataFrame to %s', table_name, exc_info=e)
+            else:
+                logger.info('Successfully dump DataFrame into %s', table_name)
+        else:
+            with self.conn as conn:
+                df.to_sql(table_name, conn, if_exists=if_exists, index=False)
+
+
+    def _reconcile_df_column_names(self, df: pd.DataFrame, table_name: str):
+
+        with self.conn as conn:
+            df_table = pd.read_sql(
+                 f'PRAGMA table_info({table_name});',
+                 conn, index_col='cid')
+
+        current_cols = set(df_table['name'].to_list())
+
+        new_cols = []
+        for col in df.columns:
+            if col not in current_cols:
+                _type_name = df[col].dtype.name
+                if 'float' in _type_name:
+                    _type = 'REAL'
+                elif 'int' in _type_name:
+                    _type = 'INTEGER'
+                elif 'datetime' in _type_name:
+                    _type = 'TIMESTAMP'
+                else:
+                    _type = 'TEXT'
+                new_cols.append((col, _type))
+            
+        with self.conn as conn:
+            for col, _type in new_cols:
+                cmd = f'ALTER TABLE {table_name} ADD COLUMN {col} {_type};'
+                logger.info(
+                    f'DataFrame need new column %s (%s), adding it using the query below\n%s',
+                    col, _type, cmd)
+                conn.execute(cmd)
+
+        return
+        
+
+
 
 
 class DBFetcher:

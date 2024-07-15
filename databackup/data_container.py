@@ -16,6 +16,8 @@ logger = MyLogger.getLogger("datadump")
 @dataclass(kw_only=True)
 class BaseData(abc.ABC):
 
+    db = DB()
+    
     def dump(self, job: JobSetup):
         logger.info('Dumping %s for Ticker %s into database', self.__class__.__name__, job.ticker_name)
 
@@ -30,24 +32,11 @@ class BaseData(abc.ABC):
             logger.info('Found empty %s to dump for Ticker %s', self.__class__.__name__, job.ticker_name)
 
         for _df, _tbl_name in self._df_for_db_list:
-            self._dump_df_to_db(_df, _tbl_name, if_exists='append')
+            self.db.add_df(_df, _tbl_name, if_exists='append')
             
     @abc.abstractmethod
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
         """Return a list of (DataFrame, table_name) to be dumped to DB"""
-
-    @staticmethod
-    def _dump_df_to_db(df, table_name, if_exists='fail'):
-
-        logger.debug('Dumping DataFrame to %s', table_name)
-
-        try:
-            with DB().conn as conn:
-                df.to_sql(table_name, conn, if_exists=if_exists, index=False)
-        except Exception as e:
-            logger.error('Encountered error when dumping DataFrame to %s', table_name, exc_info=e)
-        else:
-            logger.info('Successfully dump DataFrame into %s', table_name)
 
     @staticmethod
     def _flatten_df_dict(df_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:

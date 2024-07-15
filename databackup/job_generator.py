@@ -52,7 +52,7 @@ class JobGenerator:
         }
 
         job = JobSetup(**args)
-        self.fetcher.db.update_job_status_to_db(job, JobStatus.INIT.value)
+        self.fetcher.db.add_job_status(job, JobStatus.INIT.value)
         return job
 
     def _has_enough_gap_since_last_run(self, task):

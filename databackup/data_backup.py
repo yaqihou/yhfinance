@@ -52,7 +52,7 @@ class DataBackup:
             else:
                 status = JobStatus.SUCCESS
 
-        self.db.update_job_status_to_db(job, status.value)
+        self.db.add_job_status(job, status.value)
 
         return status
 
