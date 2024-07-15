@@ -1,11 +1,11 @@
 
 import datetime as dt
-import logging
 
 from databackup._defs.tickers import HistoryExtraOptions
 
+from .logger import MyLogger
 
-logger = logging.getLogger('yfinance-backup.task-factory')
+logger = MyLogger.getLogger('task-factory')
 
 from .defs import BackupFrequency
 from .defs import Interval, TickerType, Period

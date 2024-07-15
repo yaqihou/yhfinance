@@ -1,7 +1,6 @@
 
 import abc
 import datetime as dt
-import logging
 from typing import Optional
 
 import pandas as pd
@@ -10,8 +9,9 @@ from dataclasses import dataclass
 
 from .defs import JobSetup, TableName
 from .db_utils import DBMessenger as DB
+from .logger import MyLogger
 
-logger = logging.getLogger("yfinance-backup.datadump")
+logger = MyLogger.getLogger("datadump")
 
 @dataclass(kw_only=True)
 class BaseData(abc.ABC):

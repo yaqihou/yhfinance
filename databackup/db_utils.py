@@ -2,19 +2,19 @@
 import os
 import sqlite3
 
-import logging
 from typing import Callable
 
 import pandas as pd
 import datetime as dt
 
 from .defs import TableName, MetaTableDefinition
+from .logger import MyLogger
 
 DB_NAME = os.path.join(
     os.environ.get('HOME', '.'), 'Dropbox', '66-DBs', 'FinDB.db'
 )
 
-logger = logging.getLogger("yfinance-backup.db")
+logger = MyLogger.getLogger("db")
 
 
 class DB:

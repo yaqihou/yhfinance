@@ -22,34 +22,34 @@ idx_tickers = ['^IXIC', '^DJI', '^GSPC', '^RUT']
 crypto_tickers = ['BTC-USD', 'ETH-USD', 'USDT-USD']
 
 TICKER_CONFIGS = [
-    *[UserConfig(
-        ticker_name = ticker,
-        ticker_type = TickerType.ETF,
-        tasks=task_preset_factory.all_tasks
-    ) for ticker in etf_tickers],
-    *[UserConfig(
-        ticker_name = ticker,
-        ticker_type = TickerType.STOCK,
-        tasks=task_preset_factory.all_tasks
-    ) for ticker in mag7_stock_tickers],
-    *[UserConfig(
-        ticker_name = ticker,
-        ticker_type = TickerType.STOCK,
-        tasks=task_preset_factory.all_tasks
-    ) for ticker in bank_stock_tickers],
-    *[UserConfig(
-        ticker_name = ticker,
-        ticker_type = TickerType.STOCK,
-        tasks=task_preset_factory.all_tasks
-    ) for ticker in airlines_stock_tickers],
-    *[UserConfig(
-        ticker_name = ticker,
-        ticker_type = TickerType.Index,
-        tasks=task_preset_factory.all_tasks
-    ) for ticker in idx_tickers],
+    # *[UserConfig(
+    #     ticker_name = ticker,
+    #     ticker_type = TickerType.ETF,
+    #     tasks=task_preset_factory.all_tasks
+    # ) for ticker in etf_tickers],
+    # *[UserConfig(
+    #     ticker_name = ticker,
+    #     ticker_type = TickerType.STOCK,
+    #     tasks=task_preset_factory.all_tasks
+    # ) for ticker in mag7_stock_tickers],
+    # *[UserConfig(
+    #     ticker_name = ticker,
+    #     ticker_type = TickerType.STOCK,
+    #     tasks=task_preset_factory.all_tasks
+    # ) for ticker in bank_stock_tickers],
+    # *[UserConfig(
+    #     ticker_name = ticker,
+    #     ticker_type = TickerType.STOCK,
+    #     tasks=task_preset_factory.all_tasks
+    # ) for ticker in airlines_stock_tickers],
+    # *[UserConfig(
+    #     ticker_name = ticker,
+    #     ticker_type = TickerType.Index,
+    #     tasks=task_preset_factory.all_tasks
+    # ) for ticker in idx_tickers],
     *[UserConfig(
         ticker_name = ticker,
         ticker_type = TickerType.Crypto,
-        tasks=task_preset_factory.all_tasks
+        tasks=task_preset_factory.all_tasks_crypto
     ) for ticker in crypto_tickers],
 ]

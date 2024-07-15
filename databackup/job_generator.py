@@ -2,17 +2,17 @@
 """
 
 import datetime as dt
-import logging
 import pandas as pd
 
 from typing import Optional
 
+from .logger import MyLogger
 from .db_utils import DBMessenger as DB
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
 from .defs import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
 from .user_config import TICKER_CONFIGS
 
-logger = logging.getLogger("yfinance-backup.job_generator")
+logger = MyLogger.getLogger("job_generator")
 
 class JobGenerator:
 

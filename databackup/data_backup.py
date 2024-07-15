@@ -1,14 +1,14 @@
-import logging
 import pandas as pd
 
-from databackup.job_generator import JobGenerator
-from databackup.data_puller import TickerPuller
-from databackup.defs import *
-from databackup.tasks_factory import TaskPreset
-from databackup.db_utils import DBMessenger as DB
-from databackup.user_config import TICKER_CONFIGS
+from .logger import MyLogger
+from .job_generator import JobGenerator
+from .data_puller import TickerPuller
+from .defs import *
+from .tasks_factory import TaskPreset
+from .db_utils import DBMessenger as DB
+from .user_config import TICKER_CONFIGS
 
-logger = logging.getLogger('yfinance-backup.backup')
+logger = MyLogger.getLogger('backup')
 
 
 class DataBackup:

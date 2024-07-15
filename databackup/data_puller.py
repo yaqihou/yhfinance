@@ -20,12 +20,11 @@ import requests_cache
 from .defs import JobSetup, DownloadSwitch
 from .data_container import *
 
-import logging
+from .logger import MyLogger
 
 # TODO - need better exception handler
-
 # TODO - add log for downloaded results
-logger = logging.getLogger("yfinance-backup.data-puller")
+logger = MyLogger.getLogger("data-puller")
 
 
 class DownloadLog:
