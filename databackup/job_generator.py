@@ -19,6 +19,7 @@ class JobGenerator:
         self._jobs = []
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
+        self.fetcher = DBFetcher()
   
     def _gen_job(self,
                ticker_name: str,
@@ -26,17 +27,16 @@ class JobGenerator:
                task: BaseTask | HistoryTask | IntraDayHistoryTask) -> JobSetup:
         """Generate the job spec for the given task"""
 
-        with DBFetcher() as fetcher:
-            sql = f"""
-            SELECT COUNT(1) AS cnt
-            FROM [{TableName.Meta.run_log}]
-            WHERE task_name = '{task.name}'
-                AND run_status = {JobStatus.SUCCESS.value}
-                AND run_date = '{self.run_datetime.date()}'
-                AND ticker_name = '{ticker_name}'
-                AND ticker_type = '{ticker_type.value}'
-            """
-            df = fetcher.read_sql(sql)
+        sql = f"""
+        SELECT COUNT(1) AS cnt
+        FROM [{TableName.Meta.run_log}]
+        WHERE task_name = '{task.name}'
+            AND run_status = {JobStatus.SUCCESS.value}
+            AND run_date = '{self.run_datetime.date()}'
+            AND ticker_name = '{ticker_name}'
+            AND ticker_type = '{ticker_type.value}'
+        """
+        df = self.fetcher.read_sql(sql)
 
         if df.empty:  intraday_ver = 1
         else:
@@ -51,17 +51,18 @@ class JobGenerator:
             **task.get_args(self.run_datetime),
         }
 
-        return JobSetup(**args)
+        job = JobSetup(**args)
+        self.fetcher.db.update_job_status_to_db(job, JobStatus.INIT.value)
+        return job
 
     def _has_enough_gap_since_last_run(self, task):
 
-        with DBFetcher() as fetcher:
-            df = fetcher.read_sql(f"""
-            SELECT MAX(run_datetime)
-            FROM [{TableName.Meta.run_log}]
-            WHERE task_name = '{task.name}'
-                AND run_status = 1
-            """)
+        df = self.fetcher.read_sql(f"""
+        SELECT MAX(run_datetime)
+        FROM [{TableName.Meta.run_log}]
+        WHERE task_name = '{task.name}'
+            AND run_status = 1
+        """)
 
         ret = False
         if df.empty or df.iloc[0, 0] is None:

@@ -2,12 +2,12 @@
 import os
 import sqlite3
 
-from typing import Callable
+from typing import Callable, Optional
 
 import pandas as pd
 import datetime as dt
 
-from .defs import TableName, MetaTableDefinition
+from .defs import JobSetup, TableName, MetaTableDefinition
 from .logger import MyLogger
 
 DB_NAME = os.path.join(
@@ -47,6 +47,16 @@ class DB:
                 logger.debug('MetaTable %s does not exist, creating a new one', TableName.Meta.run_log)
                 conn.execute(MetaTableDefinition.run_log)
 
+    def update_job_status_to_db(self, job: JobSetup, status: int):
+        _df = pd.DataFrame.from_dict({
+            'run_status': [status],
+            **{k: [v] for k, v in job.metainfo.items()}
+        })
+
+        with self.conn as conn:
+            _df.to_sql(TableName.Meta.run_log, conn, if_exists='append', index=False)
+
+
 class DBFetcher:
 
     def __init__(self, db_name: str = DB_NAME):
@@ -74,6 +84,7 @@ class DBMaintainer:
     def __init__(self, db_name: str = DB_NAME):
         self._db_name = db_name
         self.db = DB(db_name)
+        self.fetcher = DBFetcher(db_name)
 
     def maintain_tickers_meta(self):
         
@@ -99,7 +110,7 @@ class DBMaintainer:
         return ret
 
     def _report_status(self, tbl_name):
-        df = self.db.read_sql(f"SELECT * FROM {tbl_name}")
+        df = self.fetcher.read_sql(f"SELECT * FROM {tbl_name}")
         
         # Add other information we may be interested
         return df.shape, df.columns 
@@ -110,13 +121,22 @@ class DBMaintainer:
         # TODO add a summary printout
         return
         
-    def _maintain_unique_entries(self, tbl_name: str, dryrun: bool = False):
+    def _maintain_unique_entries(
+            self, tbl_name: str, dryrun: bool = False,
+            ignore_meta_columns: bool = False, ignored_columns: Optional[list[str]] = None):
         
         logger.info('Cleaning up duplicate rows in table %s', tbl_name)
 
-        df = self.db.read_sql(f"SELECT * FROM {tbl_name}")
+        df = self.fetcher.read_sql(f"SELECT * FROM {tbl_name}")
+
+        subset = None
+        if ignore_meta_columns:
+            ignored_cols = set(ignored_columns or JobSetup.get_metainfo_cols())
+            subset = [x for x in df.columns if x not in ignored_cols]
+            logger.info("Will not use ")
+
         _old_shape = df.shape
-        df = df.drop_duplicates(ignore_index=True)
+        df = df.drop_duplicates(ignore_index=True, subset=subset)
         _new_shape = df.shape
 
         if _old_shape[0] == _new_shape[0]:

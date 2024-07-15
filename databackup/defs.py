@@ -94,13 +94,26 @@ class JobSetup:
 
     @property
     def metainfo(self) -> dict:
-        return {
-            'ticker_name': self.ticker_name,
-            'ticker_type': self.ticker_type.value,
-            'run_date': self.run_date,
-            'run_datetime': self.run_datetime,
-            'run_intraday_version': self.run_intraday_version,
-            'task_name': self.task.name
+        ret = {
+            'ticker_name'          : self.ticker_name,
+            'ticker_type'          : self.ticker_type.value,
+            'run_date'             : self.run_date,
+            'run_datetime'         : self.run_datetime,
+            'run_intraday_version' : self.run_intraday_version,
+            'task_name'            : self.task.name
         }
-        
-        
+
+        assert set(self.get_metainfo_cols()) == set(ret.keys())
+
+        return ret
+
+    @classmethod
+    def get_metainfo_cols(cls) -> list[str]:
+        return [
+            'ticker_name',
+            'ticker_type',
+            'run_date',
+            'run_datetime',
+            'run_intraday_version',
+            'task_name'
+        ]
