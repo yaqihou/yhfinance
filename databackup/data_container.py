@@ -233,8 +233,8 @@ class HistoryData(BaseData):
 
         df['period_type'] = 'regular'
         
-        if self.metadata.get('hasPrePostMarketData', False):
-            logger.info('The history do have pre/post market data')
+        if not self.metadata.get('hasPrePostMarketData', False):
+            logger.info('The history do not have pre/post market data')
         else:
             if not use_metadata or self.metadata.get('tradingPeriod', None) is None:
                 logger.info('Parsing period_type without using metadata')
