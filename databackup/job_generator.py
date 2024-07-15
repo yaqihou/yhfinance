@@ -7,16 +7,15 @@ import pandas as pd
 from typing import Optional
 
 from .logger import MyLogger
-from .db_utils import DBMessenger as DB
+from .db_utils import DBFetcher
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
 from .defs import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
-from .user_config import TICKER_CONFIGS
 
 logger = MyLogger.getLogger("job_generator")
 
 class JobGenerator:
 
-    def __init__(self, ticker_configs: list[UserConfig] = TICKER_CONFIGS):
+    def __init__(self, ticker_configs: list[UserConfig]):
         self._jobs = []
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
@@ -90,7 +89,7 @@ class JobGenerator:
                task: BaseTask | HistoryTask | IntraDayHistoryTask) -> JobSetup:
         """Generate the job spec for the given task"""
 
-        with DB() as db:
+        with DBFetcher() as fetcher:
             sql = f"""
             SELECT COUNT(1) AS cnt
             FROM [{TableName.Meta.run_log}]
@@ -100,7 +99,7 @@ class JobGenerator:
                 AND ticker_name = '{ticker_name}'
                 AND ticker_type = '{ticker_type.value}'
             """
-            df = db.read_sql(sql)
+            df = fetcher.read_sql(sql)
 
         if df.empty:  intraday_ver = 1
         else:
@@ -120,8 +119,8 @@ class JobGenerator:
 
     def _has_enough_gap_since_last_run(self, task):
 
-        with DB() as db:
-            df = db.read_sql(f"""
+        with DBFetcher() as fetcher:
+            df = fetcher.read_sql(f"""
             SELECT MAX(run_datetime)
             FROM [{TableName.Meta.run_log}]
             WHERE task_name = '{task.name}'

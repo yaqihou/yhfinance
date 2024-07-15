@@ -11,7 +11,7 @@ from databackup.job_generator import JobGenerator
 from databackup.data_puller import TickerPuller
 from databackup.defs import *
 from databackup.tasks_factory import TaskPreset
-from databackup.db_utils import DBMessenger as DB
+from databackup.db_utils import DB
 
 
 task = TaskPreset.INTRADAY_CRYPTO_HIST_M01

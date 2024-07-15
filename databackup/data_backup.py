@@ -5,17 +5,16 @@ from .job_generator import JobGenerator
 from .data_puller import TickerPuller
 from .defs import *
 from .tasks_factory import TaskPreset
-from .db_utils import DBMessenger as DB
-from .user_config import TICKER_CONFIGS
+from .db_utils import DBFetcher
 
 logger = MyLogger.getLogger('backup')
 
 
 class DataBackup:
 
-    def __init__(self, ticker_configs: list[UserConfig] = TICKER_CONFIGS):
+    def __init__(self, ticker_configs: list[UserConfig]):
         self.job_generator = JobGenerator(ticker_configs=ticker_configs)
-        self.db = DB()
+        self.db_fetcher = DBFetcher()
 
     def run(self):
 
@@ -53,7 +52,7 @@ class DataBackup:
             **{k: [v] for k, v in job.metainfo.items()}
         })
 
-        with self.db.conn as conn:
+        with self.db_fetcher.conn as conn:
             _df.to_sql(TableName.Meta.run_log, conn, if_exists='append', index=False)
 
 

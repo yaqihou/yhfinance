@@ -6,13 +6,13 @@ logger = logger_setup.logger
 
 from databackup.tasks_factory import TaskForNewTicker
 from databackup.defs import TickerType, UserConfig
-from databackup.defs import TableName
-from databackup.db_utils import DBMessenger
+from databackup.db_utils import DBFetcher
+from databackup.user_config import USER_TICKER_CONFIGS
 from databackup.data_backup import DataBackup
 
 
 # Check if the ticker is really new
-db_messenger = DBMessenger()
+db_messenger = DBFetcher()
 
 ticker_name = 'TQQQ'
 ticker_type = TickerType.ETF

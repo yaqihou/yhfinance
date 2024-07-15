@@ -1,7 +1,7 @@
 import datetime as dt
 
-from .defs import TickerType, UserConfig
-from .tasks_factory import TaskPreset
+from databackup.defs import TickerType, UserConfig
+from databackup.tasks_factory import TaskPreset
 
 task_preset_factory = TaskPreset()
 
@@ -21,7 +21,7 @@ idx_tickers = ['^IXIC', '^DJI', '^GSPC', '^RUT']
 # TODO rates_tickers = []
 crypto_tickers = ['BTC-USD', 'ETH-USD', 'USDT-USD']
 
-TICKER_CONFIGS = [
+USER_TICKER_CONFIGS = [
     # *[UserConfig(
     #     ticker_name = ticker,
     #     ticker_type = TickerType.ETF,

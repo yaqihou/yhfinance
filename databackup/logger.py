@@ -8,7 +8,7 @@ class MyLogger:
         fmt='%(asctime)s |  %(name)20s::%(levelname)6s | %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p')
 
-    __PROJECT_NAME__: str | None = 'finback'
+    __PROJECT_NAME__: str | None = 'fin-backup'
     __LOG_FILE_NAME__: str = 'finance-data-backup.log'
     # root logger 
     logger = logging.getLogger(__PROJECT_NAME__)

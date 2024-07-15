@@ -8,7 +8,7 @@ import json
 from dataclasses import dataclass
 
 from .defs import JobSetup, TableName
-from .db_utils import DBMessenger as DB
+from .db_utils import DB
 from .logger import MyLogger
 
 logger = MyLogger.getLogger("datadump")

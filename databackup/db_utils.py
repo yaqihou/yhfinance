@@ -47,7 +47,7 @@ class DB:
                 logger.debug('MetaTable %s does not exist, creating a new one', TableName.Meta.run_log)
                 conn.execute(MetaTableDefinition.run_log)
 
-class DBMessenger:
+class DBFetcher:
 
     def __init__(self, db_name: str = DB_NAME):
         self._db_name = db_name
