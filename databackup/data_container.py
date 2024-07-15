@@ -209,32 +209,16 @@ class HistoryData(BaseData):
             _df_history = self.history_raw.reset_index().copy()
             if 'Date' in _df_history.columns:  # the index is Date for day history and Datetime for intraday
                 _df_history.rename(columns={'Date': 'Datetime'}, inplace=True)
+
+            # NOTE - or use .normalize() but may be better to just keep the date() 
             _df_history['Date'] = _df_history['Datetime'].apply(lambda x: x.date())
 
             _interval = self.args['interval']
             _is_intraday = _interval[-1] in {'m', 'h'}
 
             # add the indicator for period type
-            _df_history['period_type'] = 'regular'
-            if (self.metadata.get('hasPrePostMarketData', False)
-                and (self.metadata.get('currentTradingPeriod', None) is not None)
-                ):
-
-                for period_type, _dict in self.metadata['currentTradingPeriod'].items():
-
-                    # TODO - may need to setup time zone based on the gmtoffset field
-                    _start = pd.Timestamp(_dict['start'], unit='s', tz='America/New_York')
-                    _end = pd.Timestamp(_dict['end'], unit='s', tz='America/New_York')
-
-                    logger.debug('Assigning period type %s from %s to %s',
-                                 period_type, str(_start), str(_end))
-
-                    # Use open end at end_time as the last entry is 1 min earlier
-                    _df_history.loc[
-                        (_df_history['Datetime'] >= _start) & (_df_history['Datetime'] < _end),
-                        'period_type'] = period_type
-            else:
-                logger.debug('Did not find required data to assign trading period, default to regular')
+            # NOTE - the trading periods 
+            _df_history = self._apply_trading_period_type(_df_history, use_metadata=True)
 
             # don't save action for intraday history
             if _is_intraday:
@@ -245,7 +229,41 @@ class HistoryData(BaseData):
 
             self.history = _df_history[_cols].copy()
 
+    def _apply_trading_period_type(self, df, use_metadata: bool) -> pd.DataFrame:
+
+        df['period_type'] = 'regular'
         
+        if self.metadata.get('hasPrePostMarketData', False):
+            logger.info('The history do have pre/post market data')
+        else:
+            if not use_metadata or self.metadata.get('tradingPeriod', None) is None:
+                logger.info('Parsing period_type without using metadata')
+                df = self._apply_trading_period_type_without_metadata(df)
+            else:
+                logger.info('Parsing period_type using metadata in tradingPeriod')
+                df = self._apply_trading_period_type_with_metadata(df)
+
+
+        return df
+
+    def _apply_trading_period_type_with_metadata(self, df) -> pd.DataFrame:
+
+
+        df_meta = self.metadata['tradingPeriod'].reset_index(names=['tmp_key'])
+        logger.debug('Metadata tradingPeriod %s', str(df_meta.to_csv()))
+
+        df['tmp_key'] = df['Datetime'].dt.normalize()
+        df = df.merge(df_meta, on='tmp_key')
+        df.loc[df['Datetime'] < df['start'] , 'period_type'] = 'pre'
+        df.loc[df['Datetime'] >= df['end'] , 'period_type'] = 'post'
+
+        df = df.drop(columns=['tmp_key', 'start', 'end'])
+
+        return df
+
+    def _apply_trading_period_type_without_metadata(self, df) -> pd.DataFrame:
+        logger.warning('Parsing period_type without metadata has not been implemented')
+        return df
 
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
 
