@@ -1,6 +1,8 @@
 import sys
 import logging
 
+from typing import Optional
+
 
 class MyLogger:
 
@@ -21,10 +23,10 @@ class MyLogger:
             return logging.getLogger('.'.join([cls.__PROJECT_NAME__, name]))
     
     @classmethod
-    def setup(cls):
+    def setup(cls, log_filename: Optional[str] = None):
         _ = [cls.logger.removeHandler(hdlr) for hdlr in cls.logger.handlers]
         cls.logger.addHandler(cls.get_default_stdout_hdlr())
-        cls.logger.addHandler(cls.get_default_file_hdlr())
+        cls.logger.addHandler(cls.get_default_file_hdlr(log_filename))
         cls.logger.setLevel(logging.DEBUG)
 
     @classmethod
@@ -36,8 +38,10 @@ class MyLogger:
         return hdlr
         
     @classmethod
-    def get_default_file_hdlr(cls, level=logging.INFO):
-        hdlr = logging.FileHandler(cls.__LOG_FILE_NAME__)
+    def get_default_file_hdlr(cls, log_filename: Optional[str], level=logging.INFO):
+        _log_file = log_filename or cls.__LOG_FILE_NAME__
+        
+        hdlr = logging.FileHandler(_log_file)
         hdlr.setFormatter(cls.default_formatter)
         hdlr.setLevel(level)
         return hdlr
