@@ -72,6 +72,16 @@ class Interval(Enum):
     MON_1 = '1mo'
     MON_3 = '3mo'
 
+    @property
+    def is_intraday(self):
+        return self.value[-1] in {'m', 'h'}
+
+    @classmethod
+    def get_all_intraday_intervals(cls):
+        return [cls.MIN_1, cls.MIN_2, cls.MIN_5,
+                cls.MIN_15, cls.MIN_30, cls.MIN_60, cls.MIN_90]
+        
+
 
 class DownloadSwitch:
 

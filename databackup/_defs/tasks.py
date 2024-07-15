@@ -141,7 +141,9 @@ class BaseTask:
     def get_args(self):
         return {
             'download_switch': self.download_switch,
-            'download_full_text_news': self.download_full_text_news
+            'download_full_text_news': self.download_full_text_news,
+            'interval': self.interval,
+            'history_extra_options': self.history_extra_options
         }
 
 
@@ -149,13 +151,6 @@ class BaseTask:
 class HistoryTask(BaseTask):
 
     download_switch: int = DownloadSwitch.HISTORY
-
-    def get_args(self):
-        return {
-            **super().get_args(),
-            'interval': self.interval,
-            'history_extra_options': self.history_extra_options
-        }
 
 
 @dataclass(kw_only=True)

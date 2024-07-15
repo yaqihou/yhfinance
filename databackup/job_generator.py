@@ -3,9 +3,9 @@
 
 import datetime as dt
 import logging
-import pathlib
 import pandas as pd
 
+from typing import Optional
 
 from .db_utils import DBMessenger as DB
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
@@ -16,7 +16,7 @@ logger = logging.getLogger("yfinance-backup.job_generator")
 
 class JobGenerator:
 
-    def __init__(self, ticker_configs=TICKER_CONFIGS):
+    def __init__(self, ticker_configs: list[UserConfig] = TICKER_CONFIGS):
         self._jobs = []
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
@@ -38,7 +38,6 @@ class JobGenerator:
 
         raise ValueError(f'Given input {date} is not valid')
         
-
     def _parse_history_range_args(self, task) -> dict:
 
         _period, _start, _end = None, None, None

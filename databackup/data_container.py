@@ -196,9 +196,15 @@ class HistoryData(BaseData):
     args: dict
     metadata: dict
 
+    @property
+    def empty(self):
+        return self.history_raw is None or self.history_raw.empty
+
     def __post_init__(self):
 
-        if self.history_raw is not None and not self.history_raw.empty:
+        if self.empty:
+            logger.debug("Found empty history DataFrame, skip post-processing")
+        else:
             # Add special treatment to the raw data
             _df_history = self.history_raw.reset_index().copy()
             if 'Date' in _df_history.columns:  # the index is Date for day history and Datetime for intraday
@@ -239,14 +245,13 @@ class HistoryData(BaseData):
 
             self.history = _df_history[_cols].copy()
 
-        else:
-            logger.debug("Found empty history DataFrame, skip post-processing")
         
 
-    def _prepare_df_for_db(self, job: JobSetup):
+    def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
+
+        if self.empty:  return []
 
         # Only select OLHC data for intraday history
-
         _interval = self.args['interval']
         _df_args = pd.DataFrame.from_dict({k: [v] for k,v in self.args.items()})
 
