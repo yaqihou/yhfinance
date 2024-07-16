@@ -1,15 +1,18 @@
 
-from databackup.logger import MyLogger
+from yhfinance.logger import MyLogger
 logger_setup = MyLogger()
 logger_setup.setup()
 logger = logger_setup.logger
 
-from databackup.tasks_factory import TaskForNewTicker
-from databackup.defs import TickerType, UserConfig
-from databackup.db_utils import DBFetcher
-from databackup.data_backup import DataBackup
+from yhfinance.const.tickers import TickerType
+from yhfinance.const.databackup import UserConfig
 
-from watchlist import DEFAULT_WATCHLIST
+# from yhfinance.db_utils import DBFetcher
+
+from yhfinance.databackup.tasks_factory import TaskForNewTicker
+from yhfinance.databackup.data_backup import DataBackup
+
+from yhfinance.config.watchlist import DEFAULT_WATCHLIST
 
 # Check if the ticker is really new
 # fetcher = DBFetcher()

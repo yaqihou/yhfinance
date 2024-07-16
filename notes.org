@@ -1,8 +1,14 @@
 
-* Price Backup
 
-* Option Backup
+- [X] Add new column to indicator prepost or not
+- [X] Extend backup frequency to a general condition based on day of week / current datetime / etc.
+- [X] Add a DB maintainer to define several routines:
+- [X] Create an adhoc task preset for new history
+- [ ] Add the metatable for tickers and tasks
+- [ ] Backup condition: add on month end
+- [ ] add centralized arguments such as rate limit / config file name and etc
+- [ ] Add support to Futures
 
-* Financial Backup
 
-* News Backup
+- [ ] Work on some reading functions 
+  

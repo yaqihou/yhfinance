@@ -1,26 +1,21 @@
 
 import abc
-import datetime as dt
-from functools import wraps
 from typing import Optional
 
-from pandas.core.arrays import period
 import yfinance as yf
 import pandas as pd
 
 from requests import Session
-from requests_cache import CacheMixin, SQLiteCache
+# import requests_cache
+# from requests_cache import CacheMixin, SQLiteCache
 from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
 from pyrate_limiter import Duration, RequestRate, Limiter
 
-import requests_cache
+from yhfinance.logger import MyLogger
+from yhfinance.const.databackup import JobSetup, DownloadSwitch
 
-
-
-from .defs import JobSetup, DownloadSwitch
 from .data_container import *
 
-from .logger import MyLogger
 
 # TODO - need better exception handler
 # TODO - add log for downloaded results
@@ -184,11 +179,11 @@ class TickerPuller(abc.ABC):
     # TODO - full text parsing is needed
     def _download_news(self):
 
-            self._news = NewsData(
-                news_list=[News(news_dict) for news_dict in self.ticker.news])
+        self._news = NewsData(
+            news_list=[News(news_dict) for news_dict in self.ticker.news])
 
-            if self.job.download_full_text_news:
-                print("Warning: full text fetching has not been implemented")
+        if self.job.download_full_text_news:
+            print("Warning: full text fetching has not been implemented")
 
     def _download_history(self):
         """Download data related with history prices"""

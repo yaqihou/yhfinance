@@ -1,23 +1,22 @@
 
 import datetime as dt
 
-from databackup._defs.tickers import HistoryExtraOptions
 
-from .logger import MyLogger
+from yhfinance.logger import MyLogger
 
-logger = MyLogger.getLogger('task-factory')
+from yhfinance.const.tickers import HistoryExtraOptions, Interval, TickerType, Period
 
-from .defs import BackupFrequency
-from .defs import Interval, TickerType, Period
-from .defs import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
-from .defs import DownloadSwitch as DS
-from ._defs.tasks import bc_all,\
+from yhfinance.const.databackup import BackupFrequency
+from yhfinance.const.databackup import DownloadSwitch as DS
+from yhfinance.const.databackup import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
+
+from yhfinance.const.databackup.tasks import bc_all,\
     bc_weekday_during_market_open_normal,\
     bc_friday_after_market_close_normal,\
     bc_friday_after_market_close_extend,\
     bc_weekday_after_market_close_extend
 
-
+logger = MyLogger.getLogger('task-factory')
 
 class TaskPreset:
     

@@ -7,9 +7,11 @@ import pandas as pd
 import json
 from dataclasses import dataclass
 
-from .defs import JobSetup, TableName
-from .db_utils import DB
-from .logger import MyLogger
+from yhfinance.const.databackup import JobSetup
+from yhfinance.const.db import TableName
+
+from yhfinance.db_utils import DB
+from yhfinance.logger import MyLogger
 
 logger = MyLogger.getLogger("datadump")
 

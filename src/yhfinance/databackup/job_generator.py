@@ -6,12 +6,14 @@ import pandas as pd
 
 from typing import Optional
 
-from databackup._defs.tasks import BackupFrequency
 
-from .logger import MyLogger
-from .db_utils import DBFetcher
-from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
-from .defs import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
+from yhfinance.const.databackup import BackupFrequency, JobStatus, JobSetup
+from yhfinance.const.databackup import HistoryTask, IntraDayHistoryTask, BaseTask, UserConfig
+from yhfinance.const.db import TableName
+from yhfinance.const.tickers import TickerType
+
+from yhfinance.logger import MyLogger
+from yhfinance.db_utils import DBFetcher
 
 logger = MyLogger.getLogger("job_generator")
 

@@ -4,12 +4,26 @@ import datetime as dt
 from dataclasses import dataclass, field
 
 from typing import Optional
+import pandas as pd
 
-from databackup.logger import MyLogger
+from yhfinance.logger import MyLogger
 
-from .tickers import DownloadSwitch, Period, Interval, HistoryExtraOptions
+from ..tickers import Period, Interval, HistoryExtraOptions
 
 logger = MyLogger.getLogger('utils')
+
+
+class DownloadSwitch:
+
+    HISTORY: int = 1
+    INFO: int = 1 << 1
+    NEWS: int = 1 << 2
+    HOLDER: int = 1 << 3
+    FINANCIAL: int = 1 << 4
+    RATING: int = 1 << 5
+    OPTION: int = 1 << 6
+
+    ALL: int = HISTORY | INFO | NEWS | HOLDER | FINANCIAL | RATING | OPTION
 
 
 class BackupFrequency(Enum):
@@ -162,8 +176,8 @@ class BaseTask:
 
     # The below arguments would be useful to create ad hoc tasks (like to run for a customized period)
     period: Optional[Period] = None  # Period have the highest priority
-    start: Optional[dt.datetime | str | int] = None
-    end: Optional[dt.datetime | str | int] = None
+    start: Optional[dt.datetime | dt.date | str | int] = None
+    end: Optional[dt.datetime | dt.date | str | int] = None
     history_extra_options: HistoryExtraOptions = HistoryExtraOptions()
     
     # Download Price Data by default
@@ -226,7 +240,8 @@ class BaseTask:
             'end': _end
         }
 
-    def _parse_input_date(self, date: str | dt.datetime | dt.date, time: Optional[dt.time] = None) -> dt.datetime:
+    def _parse_input_date(self, date: str | dt.datetime | dt.date | int,
+                          time: Optional[dt.time] = None) -> dt.datetime:
 
         if isinstance(date, dt.datetime):
             return date

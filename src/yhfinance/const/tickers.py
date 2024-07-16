@@ -1,5 +1,4 @@
 from enum import Enum
-import datetime as dt
 from dataclasses import dataclass
 import dataclasses
 
@@ -80,20 +79,6 @@ class Interval(Enum):
     def get_all_intraday_intervals(cls):
         return [cls.MIN_1, cls.MIN_2, cls.MIN_5,
                 cls.MIN_15, cls.MIN_30, cls.MIN_60, cls.MIN_90]
-        
-
-
-class DownloadSwitch:
-
-    HISTORY: int = 1
-    INFO: int = 1 << 1
-    NEWS: int = 1 << 2
-    HOLDER: int = 1 << 3
-    FINANCIAL: int = 1 << 4
-    RATING: int = 1 << 5
-    OPTION: int = 1 << 6
-
-    ALL: int = HISTORY | INFO | NEWS | HOLDER | FINANCIAL | RATING | OPTION
 
 
 @dataclass

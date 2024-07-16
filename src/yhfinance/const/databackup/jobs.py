@@ -3,12 +3,8 @@ import datetime as dt
 from typing import Optional
 from enum import Enum
 
-# Offer the entry to import
-from ._defs.tickers import TickerType, Period, Interval, DownloadSwitch, HistoryExtraOptions
-from ._defs.tasks import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
-from ._defs.tasks import BackupCondition, BackupFrequency
-from ._defs.tables import TableName, MetaTableDefinition
-
+from .tasks import BaseTask, DownloadSwitch
+from ..tickers import TickerType, Period, Interval, HistoryExtraOptions
 
 @dataclass
 class UserConfig:
@@ -38,7 +34,7 @@ class JobSetup:
     # Run setup - extra information
     run_datetime: dt.datetime 
     run_intraday_version: int
-    task: BaseTask | HistoryTask | IntraDayHistoryTask
+    task: BaseTask 
     download_switch: int = DownloadSwitch.ALL
 
     # History Arguments
