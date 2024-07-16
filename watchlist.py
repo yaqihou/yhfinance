@@ -21,7 +21,7 @@ idx_tickers = ['^IXIC', '^DJI', '^GSPC', '^RUT']
 # TODO rates_tickers = []
 crypto_tickers = ['BTC-USD', 'ETH-USD', 'USDT-USD']
 
-USER_TICKER_CONFIGS = [
+DEFAULT_WATCHLIST = [
     *[UserConfig(
         ticker_name = ticker,
         ticker_type = TickerType.ETF,
