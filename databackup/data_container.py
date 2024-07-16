@@ -218,15 +218,19 @@ class HistoryData(BaseData):
 
             self.history = _df_history[_cols].copy()
 
-    def _apply_trading_period_type(self, df, use_metadata: bool) -> pd.DataFrame:
+    def _apply_trading_period_type(self, df, use_metadata: bool = True) -> pd.DataFrame:
 
         df['period_type'] = 'regular'
         
         if not self.metadata.get('hasPrePostMarketData', False):
             logger.info('The history do not have pre/post market data')
         else:
-            if not use_metadata or self.metadata.get('tradingPeriod', None) is None:
-                logger.info('Parsing period_type without using metadata')
+            if not use_metadata or self.metadata.get('tradingPeriods', None) is None:
+                if not use_metadata:
+                    logger.debug('use_metadata is overriden to False')
+                else:
+                    logger.debug('metada data do not have tradingPeriod key')
+                    logger.debug('%s', str(self.metadata))
                 df = self._apply_trading_period_type_without_metadata(df)
             else:
                 logger.info('Parsing period_type using metadata in tradingPeriod')
@@ -238,11 +242,14 @@ class HistoryData(BaseData):
     def _apply_trading_period_type_with_metadata(self, df) -> pd.DataFrame:
 
 
-        df_meta = self.metadata['tradingPeriod'].reset_index(names=['tmp_key'])
-        logger.debug('Metadata tradingPeriod %s', str(df_meta.to_csv()))
+        df_meta = self.metadata['tradingPeriods'].reset_index(names=['tmp_key'])
+        logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
 
         df['tmp_key'] = df['Datetime'].dt.normalize()
-        df = df.merge(df_meta, on='tmp_key')
+        # if len(df_meta.columns) > 3:
+        #     logger.debug('Found more than 3 columns in tradingPeriod metadata: %s',
+        #                  ', '.join(df_meta.columns))
+        df = df.merge(df_meta[['tmp_key', 'start', 'end']], on='tmp_key')
         df.loc[df['Datetime'] < df['start'] , 'period_type'] = 'pre'
         df.loc[df['Datetime'] >= df['end'] , 'period_type'] = 'post'
 
