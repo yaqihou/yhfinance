@@ -5,7 +5,11 @@ from dataclasses import dataclass, field
 
 from typing import Optional
 
+from databackup.logger import MyLogger
+
 from .tickers import DownloadSwitch, Period, Interval, HistoryExtraOptions
+
+logger = MyLogger.getLogger('utils')
 
 
 class BackupFrequency(Enum):
@@ -44,8 +48,13 @@ class BackupCondition:
     on_weekday: set[int] = field(default_factory=lambda: {0, 1, 2, 3, 4, 5, 6})
     on_time_range: list[tuple[Optional[dt.time], Optional[dt.time]]] = field(default_factory=lambda: [(dt.time.min, dt.time.max)])
 
-    def check(self, run_datetime: dt.datetime) -> dict[str, bool]:
-        """Return if the given datetime satisfy the condition"""
+    def check(self,
+              run_datetime: dt.datetime,
+              buffer_time: dt.timedelta = dt.timedelta(minutes=30)) -> dict[str, bool]:
+        """Return if the given datetime satisfy the condition, buffer_time is applied
+        both ways (earlier start time and later end time) to time range with cap to current day
+
+        """
 
         satisfy_on_weekday: bool = run_datetime.weekday() in self.on_weekday
 
@@ -55,12 +64,25 @@ class BackupCondition:
             if _s is None:  _s = dt.time.min
             if _e is None:  _e = dt.time.max
 
-            if (
-                    (run_datetime >= dt.datetime.combine(_rundate, _s))
-                    and (run_datetime < dt.datetime.combine(_rundate, _e))
-            ):
+            _open = max(
+                dt.datetime.combine(_rundate, dt.time.min),
+                dt.datetime.combine(_rundate, _s) - buffer_time
+            )
+
+            _close = min(
+                dt.datetime.combine(_rundate, dt.time.max),
+                dt.datetime.combine(_rundate, _e) + buffer_time
+            )
+
+            if ((run_datetime >= _open) and (run_datetime < _close)):
                 satisfy_on_time_range = True
+
+            logger.debug('Comparing %s with boundary [%s, %s): %s',
+                         str(run_datetime), str(_open), str(_close), str(satisfy_on_time_range))
+            if satisfy_on_time_range:
                 break
+                
+
 
         return {
             'on_weekday': satisfy_on_weekday,
@@ -72,43 +94,54 @@ _weekday = {0, 1, 2, 3, 4}
 
 _time_range_after_market_close_normal: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time(hour=16), dt.time.max)]
-_time_range_after_market_close_extended: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
+_time_range_after_market_close_extend: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time(hour=20), dt.time.max)]
+
+_time_range_during_market_open_normal: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
+    (dt.time(hour=9, minute=30), dt.time(hour=16))]
+_time_range_during_market_open_extend: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
+    (dt.time(hour=4), dt.time(hour=20))]
 
 _time_range_before_market_open_normal: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time.min, dt.time(hour=9, minute=30))]
-_time_range_before_market_open_extended: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
+_time_range_before_market_open_extend: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time.min, dt.time(hour=4))]
 
 _time_range_when_market_close_normal: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time.min, dt.time(hour=9, minute=30)),
     (dt.time(hour=16), dt.time.max)]
-_time_range_when_market_close_extended: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
+_time_range_when_market_close_extend: list[tuple[Optional[dt.time], Optional[dt.time]]] = [
     (dt.time.min, dt.time(hour=4)),
     (dt.time(hour=20), dt.time.max)]
 
 bc_all = BackupCondition()
 bc_weekday = BackupCondition(on_weekday=_weekday)
+
+bc_weekday_during_market_open_normal = BackupCondition(
+    on_weekday=_weekday, on_time_range=_time_range_during_market_open_normal)
+bc_weekday_during_market_open_extend = BackupCondition(
+    on_weekday=_weekday, on_time_range=_time_range_during_market_open_extend)
+
 bc_weekday_when_market_close_normal = BackupCondition(
     on_weekday=_weekday, on_time_range=_time_range_when_market_close_normal)
-bc_weekday_when_market_close_extended = BackupCondition(
-    on_weekday=_weekday, on_time_range=_time_range_when_market_close_extended)
+bc_weekday_when_market_close_extend = BackupCondition(
+    on_weekday=_weekday, on_time_range=_time_range_when_market_close_extend)
 
 bc_weekday_after_market_close_normal = BackupCondition(
     on_weekday=_weekday, on_time_range=_time_range_after_market_close_normal)
-bc_weekday_after_market_close_extended = BackupCondition(
-    on_weekday=_weekday, on_time_range=_time_range_after_market_close_extended)
+bc_weekday_after_market_close_extend = BackupCondition(
+    on_weekday=_weekday, on_time_range=_time_range_after_market_close_extend)
 
 
 bc_friday_after_market_close_normal = BackupCondition(
     on_weekday={4}, on_time_range=_time_range_after_market_close_normal)
-bc_friday_after_market_close_extended = BackupCondition(
-    on_weekday={4}, on_time_range=_time_range_after_market_close_extended)
+bc_friday_after_market_close_extend = BackupCondition(
+    on_weekday={4}, on_time_range=_time_range_after_market_close_extend)
 
 bc_weekday_before_market_open_normal = BackupCondition(
     on_weekday=_weekday, on_time_range=_time_range_before_market_open_normal)
-bc_weekday_before_market_open_extended = BackupCondition(
-    on_weekday=_weekday, on_time_range=_time_range_before_market_open_extended)
+bc_weekday_before_market_open_extend = BackupCondition(
+    on_weekday=_weekday, on_time_range=_time_range_before_market_open_extend)
 
 
 @dataclass(kw_only=True)
@@ -220,7 +253,7 @@ class HistoryTask(BaseTask):
 class IntraDayHistoryTask(HistoryTask):
     past_days: int = 0 # Default to backup current days' data
     backup_freq: BackupFrequency = BackupFrequency.DAILY
-    backup_cond: BackupCondition = bc_weekday_after_market_close_extended
+    backup_cond: BackupCondition = bc_weekday_after_market_close_extend
 
     history_extra_options: HistoryExtraOptions = HistoryExtraOptions(prepost=True)
 

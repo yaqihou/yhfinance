@@ -12,19 +12,19 @@ from .defs import Interval, TickerType, Period
 from .defs import BaseTask, HistoryTask, IntraDayHistoryTask, IntraDayHistoryTaskCrypto
 from .defs import DownloadSwitch as DS
 from ._defs.tasks import bc_all,\
-    bc_weekday,\
+    bc_weekday_during_market_open_normal,\
     bc_friday_after_market_close_normal,\
-    bc_friday_after_market_close_extended,\
-    bc_weekday_after_market_close_extended
+    bc_friday_after_market_close_extend,\
+    bc_weekday_after_market_close_extend
 
 
 
 class TaskPreset:
     
-    OPTION_3X_PER_DAY = BaseTask(
-        name = "options_intradayX3",
-        backup_freq = BackupFrequency.ONE_THIRD_DAY,
-        backup_cond = bc_weekday,
+    OPTION_EVERY_2HR_MKT_OPEN = BaseTask(
+        name = "options_intraday_every_2hr_when_open",
+        backup_freq = BackupFrequency.HOUR_2,
+        backup_cond = bc_weekday_during_market_open_normal,
         download_switch = DS.OPTION
     )
 
@@ -40,7 +40,7 @@ class TaskPreset:
     FINANCIAL_MONTHLY = BaseTask(
         name = "financial_monthly",
         backup_freq = BackupFrequency.MONTHLY,
-        backup_cond = bc_friday_after_market_close_extended,
+        backup_cond = bc_friday_after_market_close_extend,
         download_switch = DS.FINANCIAL
     )
 
@@ -79,7 +79,7 @@ class TaskPreset:
         past_days=0, # Including today
         interval=Interval.DAY,
         backup_freq=BackupFrequency.DAILY,
-        backup_cond=bc_weekday_after_market_close_extended
+        backup_cond=bc_weekday_after_market_close_extend
     )
 
     INFO_WEEKLY = BaseTask(
@@ -115,7 +115,7 @@ class TaskPreset:
 
     @property
     def intraday_tasks(self) -> list[BaseTask]:
-        return [self.OPTION_3X_PER_DAY, self.NEWS_4X_PER_DAY] + self.intraday_hist_tasks
+        return [self.OPTION_EVERY_2HR_MKT_OPEN, self.NEWS_4X_PER_DAY] + self.intraday_hist_tasks
 
     @property
     def intraday_crypto_tasks(self) -> list[BaseTask]:
@@ -263,6 +263,9 @@ class TaskForNewTicker:
 
         return self._gen_day_tasks(Interval.DAY)
 
+    def get_all_tasks(self) -> list[BaseTask]:
+        return self.get_intraday_tasks() + self.get_day_tasks()
+
     @property
     def all_tasks(self) -> list[BaseTask]:
-        return self.get_intraday_tasks() + self.get_day_tasks()
+        return self.get_all_tasks()

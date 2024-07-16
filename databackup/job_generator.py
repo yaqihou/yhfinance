@@ -55,7 +55,8 @@ class JobGenerator:
         self.fetcher.db.add_job_status(job, JobStatus.INIT.value)
         return job
 
-    def _has_enough_gap_since_last_run(self, task):
+    def _has_enough_gap_since_last_run(self, task,
+                                       buffer_time: dt.timedelta = dt.timedelta(minutes=15)):
 
         df = self.fetcher.read_sql(f"""
         SELECT MAX(run_datetime)
@@ -69,8 +70,12 @@ class JobGenerator:
             logger.debug("There is no successful runs in the log for task %s", task.name)
             ret = True
         else:
-            if (self.run_datetime - pd.to_datetime(df.iloc[0, 0])) > task.backup_freq.value:
-                logger.debug("Last run is outside wait window for task %s", task.name)
+            last_run_time = pd.to_datetime(df.iloc[0, 0])
+            if ((self.run_datetime - last_run_time)
+                > (task.backup_freq.value - buffer_time)):
+                logger.debug("Last run is outside wait window for task %s: %s - %s > %s with buffer %s",
+                             task.name, str(self.run_datetime), str(last_run_time),
+                             str(task.backup_freq.value), str(buffer_time))
                 ret = True
             else:
                 logger.debug("Task %s is too new to initiate", task.name)
