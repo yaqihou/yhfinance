@@ -59,14 +59,18 @@ class JobGenerator:
         self.fetcher.db.add_job_status(job, JobStatus.INIT.value)
         return job
 
-    def _has_enough_gap_since_last_run(self, task,
-                                       buffer_time: dt.timedelta = dt.timedelta(minutes=15)):
+    def _has_enough_gap_since_last_run(
+            self,
+            ticker_name: str, ticker_type: TickerType,
+            task: BaseTask, buffer_time: dt.timedelta = dt.timedelta(minutes=15)):
 
         df = self.fetcher.read_sql(f"""
         SELECT MAX(run_datetime)
         FROM [{TableName.Meta.run_log}]
         WHERE task_name = '{task.name}'
-            AND run_status = 1
+            AND ticker_name = '{ticker_name}'
+            AND ticker_type = '{ticker_type.value}'
+            AND run_status = {JobStatus.SUCCESS.value}
         """)
 
         ret = False
@@ -82,7 +86,8 @@ class JobGenerator:
                              str(task.backup_freq.value), str(buffer_time))
                 ret = True
             else:
-                logger.debug("Task %s is too new to initiate", task.name)
+                logger.debug("Task %s is too new to initiate, last_run_time: %s",
+                             task.name, str(last_run_time))
 
         return ret
 
@@ -96,14 +101,16 @@ class JobGenerator:
 
         return list(res.values())
     
-    def _is_valid_task(self, task: BaseTask) -> bool:
+    def _is_valid_task(
+            self, ticker_name: str, ticker_type: TickerType, task: BaseTask
+    ) -> bool:
         """Test if the given task need to be run"""
 
         if task.backup_freq is BackupFrequency.AD_HOC:
             logger.info('Task %s is AD_HOC task, always added', task.name)
             return True
 
-        satisfy_backup_freq = self._has_enough_gap_since_last_run(task)
+        satisfy_backup_freq = self._has_enough_gap_since_last_run(ticker_name, ticker_type, task)
         satisfy_conditions = self._check_backup_conditions(task)
 
         ret = all([satisfy_backup_freq, *satisfy_conditions])
@@ -123,7 +130,7 @@ class JobGenerator:
             _new_jobs = [
                 self._gen_job(ticker_config.ticker_name, ticker_config.ticker_type, task)
                 for task in ticker_config.tasks
-                if self._is_valid_task(task)
+                if self._is_valid_task(ticker_config.ticker_name, ticker_config.ticker_type, task)
             ]
 
             logger.info("Generated %d new jobs for Ticker %s", len(_new_jobs), ticker_config.ticker_name)
