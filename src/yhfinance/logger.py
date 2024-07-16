@@ -10,17 +10,23 @@ class MyLogger:
         fmt='%(asctime)s |  %(name)27s :: %(levelname)6s | %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p')
 
-    __PROJECT_NAME__: str | None = 'backup'
-    __LOG_FILE_NAME__: str = 'finance-data-backup.log'
+    __ROOT_NAME__: str = 'yhf'
+    __CURR_PROJECT_NAME__: str  = __ROOT_NAME__
+    __LOG_FILE_NAME__: str = 'yhfinance.log'
+
     # root logger 
-    logger = logging.getLogger(__PROJECT_NAME__)
+    logger = logging.getLogger(__ROOT_NAME__)
+
+    @classmethod
+    def setProject(cls, proj_name: str):
+        cls.__CURR_PROJECT_NAME__ = '.'.join([cls.__ROOT_NAME__, proj_name])
 
     @classmethod
     def getLogger(cls, name: str | None = None):
-        if name is None or cls.__PROJECT_NAME__ is None:
+        if name is None or not cls.__CURR_PROJECT_NAME__:
             return logging.getLogger(name)
         else:
-            return logging.getLogger('.'.join([cls.__PROJECT_NAME__, name]))
+            return logging.getLogger('.'.join([cls.__CURR_PROJECT_NAME__, name]))
     
     @classmethod
     def setup(cls, log_filename: Optional[str] = None):

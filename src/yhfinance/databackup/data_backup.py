@@ -10,7 +10,7 @@ from yhfinance.const.databackup import JobSetup, JobStatus, UserConfig
 from .job_generator import JobGenerator
 from .data_puller import TickerPuller
 
-logger = MyLogger.getLogger('backup')
+logger = MyLogger.getLogger('main')
 
 
 class DataBackup:

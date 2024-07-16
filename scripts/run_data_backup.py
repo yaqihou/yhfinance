@@ -14,6 +14,7 @@ parser.add_argument('-M', '--memory-db', action='store_true')
 args = parser.parse_args()
 
 MyLogger.setup(log_filename=args.log)
+MyLogger.setProject('data-backup')
 logger = MyLogger.logger
 
 if args.memory_db:
