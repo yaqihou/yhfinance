@@ -6,6 +6,8 @@ import pandas as pd
 
 from typing import Optional
 
+from databackup._defs.tasks import BackupFrequency
+
 from .logger import MyLogger
 from .db_utils import DBFetcher
 from .defs import JobSetup, DownloadSwitch, JobStatus, TableName, TickerType
@@ -92,8 +94,12 @@ class JobGenerator:
 
         return list(res.values())
     
-    def _is_valid_task(self, task) -> bool:
+    def _is_valid_task(self, task: BaseTask) -> bool:
         """Test if the given task need to be run"""
+
+        if task.backup_freq is BackupFrequency.AD_HOC:
+            logger.info('Task %s is AD_HOC task, always added', task.name)
+            return True
 
         satisfy_backup_freq = self._has_enough_gap_since_last_run(task)
         satisfy_conditions = self._check_backup_conditions(task)
