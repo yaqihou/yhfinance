@@ -227,22 +227,32 @@ class HistoryData(BaseData):
         if not self.metadata.get('hasPrePostMarketData', False):
             logger.info('The history do not have pre/post market data')
         else:
-            if not use_metadata or self.metadata.get('tradingPeriods', None) is None:
+            if (not use_metadata
+                or (self.metadata.get('tradingPeriods') is None
+                    and self.metadata.get('currentTradingPeriod') is None)):
+
                 if not use_metadata:
                     logger.debug('use_metadata is overriden to False')
                 else:
-                    logger.debug('metada data do not have tradingPeriod key')
+                    logger.debug('meta data do not have tradingPeriods or currentTradingPeriod field')
                     logger.debug('%s', str(self.metadata))
                 df = self._apply_trading_period_type_without_metadata(df)
             else:
-                logger.info('Parsing period_type using metadata in tradingPeriod')
-                df = self._apply_trading_period_type_with_metadata(df)
+                if self.metadata.get('tradingPeriods') is not None:
+                    logger.info('Parsing period_type using metadata in tradingPeriods')
+                    df = self._apply_trading_period_type_with_trading_periods(df)
 
+                elif self.metadata.get('currentTradingPeriod') is not None:
+                    logger.info('Parsing period_type using metadata in currentTradingPeriod')
+                    df = self._apply_trading_period_type_with_current_trading_period(df)
+
+                else:
+                    # DEBUG
+                    raise ValueError('Something must be wrong')
 
         return df
 
-    def _apply_trading_period_type_with_metadata(self, df) -> pd.DataFrame:
-
+    def _apply_trading_period_type_with_trading_periods(self, df) -> pd.DataFrame:
 
         df_meta = self.metadata['tradingPeriods'].reset_index(names=['tmp_key'])
         # logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
@@ -258,6 +268,44 @@ class HistoryData(BaseData):
         df = df.drop(columns=['tmp_key', 'start', 'end'])
 
         return df
+
+    def _apply_trading_period_type_with_current_trading_period(self, df) -> pd.DataFrame:
+
+        _unique_dates = df['Date'].unique().to_list()
+        if len(_unique_dates) > 1:
+            logger.warn('There are more than 1 unique dates in dataframe: %s, skip parsing',
+                        ', '.join(map(str, _unique_dates)))
+            return df
+
+        # Below is from yfinance.util
+        tz = self.metadata["exchangeTimezoneName"]
+        _parsed_md = {}
+        for m in ["regular", "pre", "post"]:
+            if (m in self.metadata["currentTradingPeriod"]
+                and isinstance(self.metadata["currentTradingPeriod"][m]["start"], int)
+                ):
+                _parsed_md[m] = {}
+                for t in ["start", "end"]:
+                    _parsed_md[m][t] = pd.to_datetime(
+                        self.metadata["currentTradingPeriod"][m][t],
+                        unit='s',
+                        utc=True).tz_convert(tz)
+
+        if 'regular' in _parsed_md:
+            _start = _parsed_md['regular']['start']
+            _end = _parsed_md['regular']['end']
+
+            logger.debug('Found trading period as [%s, %s)', _start, _end)
+
+            df.loc[df['Datetime'] < _start, 'period_type'] = 'pre'
+            df.loc[df['Datetime'] >= _end, 'period_type'] = 'post'
+
+        else:
+            logger.warn('No regular defined in currentTradingPeriod, skip parsing')
+                
+
+        return df
+        
 
     def _apply_trading_period_type_without_metadata(self, df) -> pd.DataFrame:
         logger.warning('Parsing period_type without metadata has not been implemented')
