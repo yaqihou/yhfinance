@@ -10,18 +10,19 @@ import datetime as dt
 from .defs import JobSetup, TableName, MetaTableDefinition
 from .logger import MyLogger
 
-DB_NAME = os.path.join(
-    os.environ.get('HOME', '.'), 'Dropbox', '66-DBs', 'FinDB.db'
-)
+# TODO - add this switch at module level and create testing script
+DEFAULT_DB = os.path.join(os.environ.get('HOME', '.'), 'Dropbox', '66-DBs', 'FinDB.db')
+# DEFAULT_DB = ':memory:'
 
-logger = MyLogger.getLogger("db")
+logger = MyLogger.getLogger("db_utils")
 
 
 class DB:
-    
+
     _conn_dict: dict[str, sqlite3.Connection] = {}
 
-    def __init__(self, db_name: str = DB_NAME):
+    # TODO - make this one a module level configurable variable
+    def __init__(self, db_name: str = DEFAULT_DB):
         self._db_name = db_name
 
         self._on_init_check_meta_table()
@@ -111,12 +112,9 @@ class DB:
         return
         
 
-
-
-
 class DBFetcher:
 
-    def __init__(self, db_name: str = DB_NAME):
+    def __init__(self, db_name: str = DEFAULT_DB):
         self._db_name = db_name
         self.db = DB(db_name)
 
@@ -138,7 +136,7 @@ class DBFetcher:
             
 class DBMaintainer:
 
-    def __init__(self, db_name: str = DB_NAME):
+    def __init__(self, db_name: str = DEFAULT_DB):
         self._db_name = db_name
         self.db = DB(db_name)
         self.fetcher = DBFetcher(db_name)

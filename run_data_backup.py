@@ -11,5 +11,5 @@ args = parser.parse_args()
 
 MyLogger.setup(log_filename=args.log)
 
-data_backuper = DataBackup(DEFAULT_WATCH_LIST)
+data_backuper = DataBackup(DEFAULT_WATCHLIST)
 data_backuper.run()

@@ -243,7 +243,7 @@ class HistoryData(BaseData):
 
 
         df_meta = self.metadata['tradingPeriods'].reset_index(names=['tmp_key'])
-        logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
+        # logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
 
         df['tmp_key'] = df['Datetime'].dt.normalize()
         # if len(df_meta.columns) > 3:
