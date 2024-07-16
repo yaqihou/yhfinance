@@ -20,15 +20,15 @@ logger = MyLogger("job-gen")
 class JobGenerator:
 
     def __init__(self, ticker_configs: list[UserConfig]):
-        self._jobs = []
+        self._jobs: list[JobSetup] = []
         self.ticker_configs: list[UserConfig] = ticker_configs
         self.run_datetime = dt.datetime.today()
         self.fetcher = DBFetcher()
   
-    def _gen_job(self,
-               ticker_name: str,
-               ticker_type: TickerType,
-               task: BaseTask | HistoryTask | IntraDayHistoryTask) -> JobSetup:
+    def _gen_job(
+            self, ticker_name: str, ticker_type: TickerType,
+            task: BaseTask | HistoryTask | IntraDayHistoryTask
+    ) -> JobSetup:
         """Generate the job spec for the given task"""
 
         sql = f"""
@@ -62,7 +62,8 @@ class JobGenerator:
     def _has_enough_gap_since_last_run(
             self,
             ticker_name: str, ticker_type: TickerType,
-            task: BaseTask, buffer_time: dt.timedelta = dt.timedelta(minutes=15)):
+            task: BaseTask, buffer_time: dt.timedelta = dt.timedelta(minutes=15)
+    ) -> bool:
 
         df = self.fetcher.read_sql(f"""
         SELECT MAX(run_datetime)
@@ -121,7 +122,7 @@ class JobGenerator:
 
         return ret
 
-    def create_jobs(self):
+    def create_jobs(self) -> list[JobSetup]:
 
         for ticker_config in self.ticker_configs:
             logger.debug("Found %d tasks defined for Ticker %s (%s)",
@@ -140,5 +141,7 @@ class JobGenerator:
         return self.jobs
 
     @property
-    def jobs(self):
+    def jobs(self) -> list[JobSetup]:
+        if not self._jobs:
+            return self.create_jobs()
         return self._jobs

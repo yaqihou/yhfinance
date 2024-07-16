@@ -21,16 +21,30 @@ class DataBackup:
 
     def run(self):
 
-        self.jobs = self.job_generator.create_jobs()
+        self.jobs: list[JobSetup] = self.job_generator.create_jobs()
 
-        status_lst = []
+        self.run_res = []
         for job in self.jobs:
-            status_lst.append(self._run_pulling_job(job))
+            self.run_res.append(self._run_pulling_job(job))
 
-        logger.info('Databack finished for %d jobs in total', len(self.jobs))
-        counter = Counter(status_lst)
+        self._report()
+
+    def _report(self):
+
+        logger.info('Finished for %d jobs in total', len(self.jobs))
+
+        counter = Counter(self.run_res)
         _summary = [[k.name, v] for k, v in counter.items()]
         logger.info("The summary is as below:\n%s", tabulate(_summary, headers=['Status', 'Count']))
+
+        _msg = []
+        for job, status in zip(self.jobs, self.run_res):
+            if status is not JobStatus.SUCCESS:
+                _msg.append(f'   - {job.ticker_name} ({job.ticker_type.name}): {job.task.name}')
+            
+        if _msg:
+            logger.error('The followings failed during the run\n%s', '\n'.join(_msg))
+
 
     def _run_pulling_job(self, job: JobSetup) -> JobStatus:
 
