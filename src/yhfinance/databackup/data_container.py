@@ -235,7 +235,7 @@ class HistoryData(BaseData):
                     logger.debug('use_metadata is overriden to False')
                 else:
                     logger.debug('meta data do not have tradingPeriods or currentTradingPeriod field')
-                    logger.debug('%s', str(self.metadata))
+                    logger.debug('History metadata %s', str(self.metadata))
                 df = self._apply_trading_period_type_without_metadata(df)
             else:
                 if self.metadata.get('tradingPeriods') is not None:
@@ -243,6 +243,7 @@ class HistoryData(BaseData):
                     df = self._apply_trading_period_type_with_trading_periods(df)
 
                 elif self.metadata.get('currentTradingPeriod') is not None:
+                    logger.debug('History metadata %s', str(self.metadata))
                     logger.info('Parsing period_type using metadata in currentTradingPeriod')
                     df = self._apply_trading_period_type_with_current_trading_period(df)
 
@@ -255,12 +256,13 @@ class HistoryData(BaseData):
     def _apply_trading_period_type_with_trading_periods(self, df) -> pd.DataFrame:
 
         df_meta = self.metadata['tradingPeriods'].reset_index(names=['tmp_key'])
-        # logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
+        logger.debug('Metadata tradingPeriods %s', str(df_meta.to_csv()))
 
         df['tmp_key'] = df['Datetime'].dt.normalize()
-        # if len(df_meta.columns) > 3:
-        #     logger.debug('Found more than 3 columns in tradingPeriod metadata: %s',
-        #                  ', '.join(df_meta.columns))
+        if len(df_meta.columns) > 3:
+            logger.debug('Found more than 3 columns in tradingPeriod metadata: %s',
+                         ', '.join(df_meta.columns))
+
         df = df.merge(df_meta[['tmp_key', 'start', 'end']], on='tmp_key')
         df.loc[df['Datetime'] < df['start'] , 'period_type'] = 'pre'
         df.loc[df['Datetime'] >= df['end'] , 'period_type'] = 'post'
@@ -271,9 +273,11 @@ class HistoryData(BaseData):
 
     def _apply_trading_period_type_with_current_trading_period(self, df) -> pd.DataFrame:
 
-        _unique_dates = df['Date'].unique().to_list()
+        _unique_dates = df['Date'].unique()
         if len(_unique_dates) > 1:
-            logger.warn('There are more than 1 unique dates in dataframe: %s, skip parsing',
+            # This is possible - for example, if we pull with period = 'max', then there will be
+            # no tradingPeriods, while currentTradingPeriod is always a dict for current day
+            logger.warn('There are more than 1 unique dates in dataframe: %s without tradingPeriods, skip parsing',
                         ', '.join(map(str, _unique_dates)))
             return df
 
