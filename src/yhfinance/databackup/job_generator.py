@@ -15,7 +15,7 @@ from yhfinance.const.tickers import TickerType
 from yhfinance.logger import MyLogger
 from yhfinance.db_utils import DBFetcher
 
-logger = MyLogger.getLogger("job-gen")
+logger = MyLogger("job-gen")
 
 class JobGenerator:
 

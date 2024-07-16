@@ -10,7 +10,7 @@ from yhfinance.logger import MyLogger
 
 from ..tickers import Period, Interval, HistoryExtraOptions
 
-logger = MyLogger.getLogger('utils')
+logger = MyLogger('utils')
 
 
 class DownloadSwitch:

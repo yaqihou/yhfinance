@@ -1,8 +1,9 @@
-from databackup.logger import MyLogger
-MyLogger.setup()
-logger = MyLogger.logger
-from databackup.db_utils import DBMaintainer
+from yhfinance.logger import MyLogger
+from yhfinance.db_utils import DBMaintainer
 
+MyLogger.setup()
+MyLogger.setProject('db-maintain')
+logger = MyLogger()
 
 db_maintainer = DBMaintainer()
 

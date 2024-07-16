@@ -19,7 +19,7 @@ from .data_container import *
 
 # TODO - need better exception handler
 # TODO - add log for downloaded results
-logger = MyLogger.getLogger("data-puller")
+logger = MyLogger("data-puller")
 
 
 class DownloadLog:

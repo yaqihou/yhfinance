@@ -8,7 +8,7 @@ from . import DB, DBFetcher, DBConfig
 
 # TODO - add this switch at module level and create testing script
 
-logger = MyLogger.getLogger("db-utils")
+logger = MyLogger(DBConfig.LOGGER_NAME)
 
 class DBMaintainer:
 

@@ -16,7 +16,7 @@ from yhfinance.const.databackup.tasks import bc_all,\
     bc_friday_after_market_close_extend,\
     bc_weekday_after_market_close_extend
 
-logger = MyLogger.getLogger('task-factory')
+logger = MyLogger('task-factory')
 
 class TaskPreset:
     

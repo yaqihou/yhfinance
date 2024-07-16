@@ -13,7 +13,7 @@ from yhfinance.const.db import TableName
 from yhfinance.db_utils import DB
 from yhfinance.logger import MyLogger
 
-logger = MyLogger.getLogger("datadump")
+logger = MyLogger("datadump")
 
 @dataclass(kw_only=True)
 class BaseData(abc.ABC):
