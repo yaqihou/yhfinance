@@ -193,15 +193,14 @@ class TickerPuller(abc.ABC):
     def _download_history(self):
         """Download data related with history prices"""
 
-        # Need a dry run to get meta data correctly, seems to be a bug from yfinance
-        _ = self.ticker.history(interval="1d", period='1d')
-        _ = self.ticker.history_metadata
+        _df_raw = self.ticker.history(**self.job.history_args)
+        _meta = self.ticker.history_metadata
 
         self._history = HistoryData(
-            history_raw=self.ticker.history(**self.job.history_args),
+            history_raw=_df_raw,
             # actions=self.ticker.actions,
             args=self.job.history_args,
-            metadata=self.ticker.history_metadata)
+            metadata=_meta)
 
     def _download_info(self):
         """Download extra info"""
