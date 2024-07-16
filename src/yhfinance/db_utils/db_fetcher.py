@@ -4,7 +4,7 @@ from yhfinance.logger import MyLogger
 
 from . import DB, DBConfig
 
-logger = MyLogger.getLogger("db_utils")
+logger = MyLogger.getLogger("db-utils")
 
 class DBFetcher:
 

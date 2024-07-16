@@ -20,9 +20,13 @@ class MyLogger:
     @classmethod
     def setProject(cls, proj_name: str):
         cls.__CURR_PROJECT_NAME__ = '.'.join([cls.__ROOT_NAME__, proj_name])
+        # print(cls.__CURR_PROJECT_NAME__)
 
     @classmethod
     def getLogger(cls, name: str | None = None):
+
+        # print(f'getLogger: {cls.__CURR_PROJECT_NAME__}')
+
         if name is None or not cls.__CURR_PROJECT_NAME__:
             return logging.getLogger(name)
         else:

@@ -15,7 +15,7 @@ from yhfinance.const.tickers import TickerType
 from yhfinance.logger import MyLogger
 from yhfinance.db_utils import DBFetcher
 
-logger = MyLogger.getLogger("job_generator")
+logger = MyLogger.getLogger("job-gen")
 
 class JobGenerator:
 
@@ -129,6 +129,7 @@ class JobGenerator:
             logger.info("Generated %d new jobs for Ticker %s", len(_new_jobs), ticker_config.ticker_name)
             self._jobs += _new_jobs
 
+        logger.info("Generated %d jobs in total for %d Tickers", len(self.jobs), len(self.ticker_configs))
         return self.jobs
 
     @property

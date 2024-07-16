@@ -11,7 +11,7 @@ from yhfinance.logger import MyLogger
 
 from . import DBConfig
 
-logger = MyLogger.getLogger("db_utils")
+logger = MyLogger.getLogger("db-utils")
 
 
 class DB:
