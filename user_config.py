@@ -10,7 +10,7 @@ etf_tickers = ['TQQQ', 'SQQQ', 'QQQ',
                'BOIL',
                'SOXX', 'USD',
                'SPY', 'IVV',
-               'NVDL', 'NVDX', 'NVD',
+               'NVDL', 'NVDX', 'NVD', 'NVDQ',
                'JET', 'JETU', 'JETD',
                'IBIT']
 
