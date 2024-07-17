@@ -19,6 +19,8 @@ class DataBackup:
         self.job_generator = JobGenerator(ticker_configs=ticker_configs)
         self.db = DB()
 
+        logger.debug('Databackup initiated')
+
     def run(self):
 
         self.jobs: list[JobSetup] = self.job_generator.create_jobs()
