@@ -3,6 +3,7 @@ import abc
 import datetime as dt
 from typing import Optional
 
+from tabulate import tabulate
 import pandas as pd
 import json
 from dataclasses import dataclass
@@ -32,6 +33,8 @@ class BaseData(abc.ABC):
 
         if not self._df_for_db_list:
             logger.info('Found empty %s to dump for Ticker %s', self.__class__.__name__, job.ticker_name)
+        else:
+            self._log_before_dump_to_db()
 
         for _df, _tbl_name in self._df_for_db_list:
             self.db.add_df(_df, _tbl_name, if_exists='append')
@@ -39,6 +42,10 @@ class BaseData(abc.ABC):
     @abc.abstractmethod
     def _prepare_df_for_db(self, job: JobSetup) -> list[tuple[pd.DataFrame, str]]:
         """Return a list of (DataFrame, table_name) to be dumped to DB"""
+
+    def _log_before_dump_to_db(self):
+        """Logging related information to log, assuming the """
+        pass
 
     @staticmethod
     def _flatten_df_dict(df_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -95,7 +102,7 @@ class OptionData(BaseData):
             return [(self._add_job_metainfo_cols(x, job), y) for x, y in ret]
         else:
             return []
-    
+
    
 class News:
 

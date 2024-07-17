@@ -56,7 +56,7 @@ class DB:
 
     def add_df(self, df: pd.DataFrame, table_name: str, if_exists: Literal['append', 'fail', 'replace'] = 'append'):
 
-        logger.debug('Dumping DataFrame to %s', table_name)
+        logger.debug('Dumping DataFrame of shape %s to %s', str(df.shape), table_name)
 
         if if_exists == 'append':
 
