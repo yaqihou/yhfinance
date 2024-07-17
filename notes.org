@@ -8,6 +8,7 @@
 - [ ] Backup condition: add on month end
 - [ ] add centralized arguments such as rate limit / config file name and etc
 - [ ] Add support to Futures
+- [ ] Add logging output for fetcher history results, to help check if the history is complete
 
 
 - [ ] Work on some reading functions 
