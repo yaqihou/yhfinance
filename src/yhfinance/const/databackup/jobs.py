@@ -3,6 +3,7 @@ import datetime as dt
 from typing import Optional
 from enum import Enum
 
+from yhfinance.const.db import MetaColName
 from .tasks import BaseTask, DownloadSwitch
 from ..tickers import TickerType, Period, Interval, HistoryExtraOptions
 
@@ -91,12 +92,12 @@ class JobSetup:
     @property
     def metainfo(self) -> dict:
         ret = {
-            'ticker_name'          : self.ticker_name,
-            'ticker_type'          : self.ticker_type.value,
-            'run_date'             : self.run_date,
-            'run_datetime'         : self.run_datetime,
-            'run_intraday_version' : self.run_intraday_version,
-            'task_name'            : self.task.name
+            MetaColName.TICKER_NAME  : self.ticker_name,
+            MetaColName.TICKER_TYPE  : self.ticker_type.value,
+            MetaColName.RUN_DATE     : self.run_date,
+            MetaColName.RUN_DATETIME : self.run_datetime,
+            MetaColName.INTRADAY_VER : self.run_intraday_version,
+            MetaColName.TASK_NAME    : self.task.name
         }
 
         assert set(self.get_metainfo_cols()) == set(ret.keys())
@@ -105,11 +106,4 @@ class JobSetup:
 
     @classmethod
     def get_metainfo_cols(cls) -> list[str]:
-        return [
-            'ticker_name',
-            'ticker_type',
-            'run_date',
-            'run_datetime',
-            'run_intraday_version',
-            'task_name'
-        ]
+        return MetaColName.to_list()
