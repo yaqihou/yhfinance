@@ -17,7 +17,7 @@ etf_tickers = ['TQQQ', 'SQQQ', 'QQQ',
 mag7_stock_tickers = ['AAPL', 'TSLA', 'GOOG', 'MSFT', 'META', 'AMZN', 'NVDA']
 bank_stock_tickers = ['WFC', 'JPM', 'BAC', 'MS', 'HSBC', 'GS', 'C', 'UBS', 'TD']
 airlines_stock_tickers = ['LUV', 'AAL', 'DAL', 'UAL', 'ALK', 'SKYW']
-idx_tickers = ['^IXIC', '^DJI', '^GSPC', '^RUT']
+idx_tickers = ['^IXIC', '^DJI', '^GSPC', '^RUT', '^VIX']
 # TODO rates_tickers = []
 crypto_tickers = ['BTC-USD', 'ETH-USD', 'USDT-USD']
 

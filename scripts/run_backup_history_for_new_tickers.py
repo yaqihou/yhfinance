@@ -30,7 +30,7 @@ logger = MyLogger()
 #     print(f'There are existing data for {ticker_name}, do you want to continue?')
 
 # all_ticker_list = [(config.ticker_name, config.ticker_type) for config in USER_TICKER_CONFIGS]
-all_ticker_list = [('NVDQ', TickerType.ETF)]
+all_ticker_list = [('^VIX', TickerType.Index)]
 
 for ticker_name, ticker_type in all_ticker_list:
     task_factory = TaskForNewTicker(ticker_name, ticker_type)
