@@ -216,7 +216,7 @@ class HistoryData(BaseData):
 
             # add the indicator for period type
             # NOTE - the trading periods 
-            _df_history = self._apply_trading_period_type(_df_history, use_metadata=True)
+            _df_history = self._apply_trading_period_type(_df_history, _is_intraday, use_metadata=True)
 
             # don't save action for intraday history
             if _is_intraday:
@@ -227,11 +227,13 @@ class HistoryData(BaseData):
 
             self.history = _df_history[_cols].copy()
 
-    def _apply_trading_period_type(self, df, use_metadata: bool = True) -> pd.DataFrame:
+    def _apply_trading_period_type(self, df, is_intraday: bool,
+                                   use_metadata: bool = True
+                                   ) -> pd.DataFrame:
 
         df['period_type'] = 'regular'
         
-        if not self.metadata.get('hasPrePostMarketData', False):
+        if not (is_intraday and self.metadata.get('hasPrePostMarketData', False)):
             logger.info('The history do not have pre/post market data')
         else:
             if (not use_metadata
