@@ -10,8 +10,8 @@ from pandas._libs.interval import intervals_to_interval_bounds
 from pandas.io.formats.format import _IntArrayFormatter
 
 from yhfinance.const.db.table_name import TableName
-from yhfinance.utils import parse_input_datetime
 from yhfinance.const.db.col_name import MetaColName
+from yhfinance.utils import parse_input_datetime
 from yhfinance.const.tickers import Interval
 from yhfinance.db_utils import DBConfig, DBFetcher
 
@@ -72,7 +72,9 @@ class BaseLoader(abc.ABC):
              run_start: Optional[TimeInput] = None,
              run_end: Optional[TimeInput] = None,
              ignore_ticker_name_case: bool = True,
-             ignore_meta_column: bool | list[str] = True
+             ignore_meta_column: bool | list[str] = [
+                 MetaColName.RUN_DATE, MetaColName.RUN_DATETIME,
+                 MetaColName.TASK_NAME]
              ) -> pd.DataFrame:
         """Load the query built with given input, in derived class, implment the initiate
         so that the qurey building function have all variables set up
@@ -88,7 +90,7 @@ class BaseLoader(abc.ABC):
         sql = self._build_query()
         df = self.fetcher.read_sql(sql)
         if ignore_meta_column:
-            df = self._filter_meta_column(df)
+            df = self._filter_meta_column(df, ignore_meta_column)
         return df
         
     def _build_query(self):
@@ -101,9 +103,27 @@ class BaseLoader(abc.ABC):
         ]
         return '\n'.join(filter(lambda x: len(x) > 0, _query_list))
 
-    def _filter_meta_column(self, df: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _filter_meta_column(
+            df: pd.DataFrame,
+             ignore_meta_column: bool | list[str] = True
+    ) -> pd.DataFrame:
         """Return the dataframe without job meta column"""
-        return df
+
+        excluded_cols: set[str]
+        if isinstance(ignore_meta_column, bool):
+            excluded_cols = set(MetaColName.to_list())
+        elif isinstance(ignore_meta_column, (list, tuple)):
+            excluded_cols = set(map(str, ignore_meta_column))
+        else:
+            raise ValueError("Input ignore_meta_column is invalid")
+            
+        new_cols: list[str] = list(
+            filter(
+                lambda x: x not in excluded_cols,
+                df.columns
+            ))
+        return df[new_cols]
 
     @staticmethod
     def _build_date_range_cond(
