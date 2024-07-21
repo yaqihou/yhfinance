@@ -2,7 +2,7 @@
 """
 
 from functools import wraps
-from typing import Literal, Union, Optional
+from typing import Literal, Union, Optional, get_args
 
 import datetime as dt
 
@@ -767,6 +767,9 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
     suitable for seasonality analysis
     """
 
+    _T_CAL_INFO_COLS = Literal['Year', 'Month', 'WeekNum', 'WeekDay']
+    _calendar_info_cols = get_args(_T_CAL_INFO_COLS)
+
     def __init__(
             self,
             df: pd.DataFrame, tick_col: str = Col.Date.name,
@@ -783,7 +786,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
         self._df['WeekNum'] = self._df[self.tick_col].apply(lambda x: max(x.date().isocalendar().week, 52))
         self._df['WeekDay'] = self._df[self.tick_col].apply(lambda x: x.date().weekday())
 
-        for col in ['Year', 'Month', 'WeekNum', 'WeekDay']:
+        for col in self._calendar_info_cols:
             self._df[col] = self._df[col].astype(int)
 
     def get_slice(
@@ -810,9 +813,13 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
 
         cols = self._df.columns
         if ignore_calendar_info:
-            cols = list(filter(lambda x: x not in {'Year', 'Month', 'WeekNum', 'WeekDay'}, cols))
-        ret = self._df.loc[mask, cols]
+            cols = list(filter(lambda x: x not in set(self.calendar_info_cols), cols))
+        ret = self._df.loc[mask, cols].reset_index()
         return ret.copy() if copy else ret
+
+    @property
+    def calendar_info_cols(self):
+        return self._calendar_info_cols
 
     @property
     def year_min(self):
@@ -821,3 +828,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
     @property
     def year_max(self):
         return self._df['Year'].max()
+
+    @property
+    def years(self) -> list[int]:
+        return sorted(self._df['Year'].unique().tolist())
