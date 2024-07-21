@@ -814,7 +814,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
         cols = self._df.columns
         if ignore_calendar_info:
             cols = list(filter(lambda x: x not in set(self.calendar_info_cols), cols))
-        ret = self._df.loc[mask, cols].reset_index()
+        ret = self._df.loc[mask, cols].reset_index(drop=True)
         return ret.copy() if copy else ret
 
     @property
