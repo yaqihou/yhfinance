@@ -54,7 +54,10 @@ class DB:
         with self.conn as conn:
             _df.to_sql(TableName.Meta.run_log, conn, if_exists='append', index=False)
 
-    def add_df(self, df: pd.DataFrame, table_name: str, if_exists: Literal['append', 'fail', 'replace'] = 'append'):
+    def add_df(self,
+               df: pd.DataFrame,
+               table_name: str,
+               if_exists: Literal['append', 'fail', 'replace'] = 'append'):
 
         logger.debug('Dumping DataFrame of shape %s to %s', str(df.shape), table_name)
 
@@ -69,7 +72,7 @@ class DB:
             except Exception as e:
                 logger.error('Encountered error when dumping DataFrame to %s', table_name, exc_info=e)
             else:
-                logger.info('Successfully dump DataFrame into %s', table_name)
+                logger.info('Successfully dump DataFrame [size: %s] into %s', table_name, str(df.shape))
         else:
             with self.conn as conn:
                 df.to_sql(table_name, conn, if_exists=if_exists, index=False)
