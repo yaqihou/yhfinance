@@ -91,6 +91,11 @@ class BaseLoader(abc.ABC):
         df = self.fetcher.read_sql(sql)
         if ignore_meta_column:
             df = self._filter_meta_column(df, ignore_meta_column)
+
+        # Apply datatype
+        df['Datetime'] = df['Datetime'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d %H:%M:%S%z'))
+        df['Date'] = df['Date'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d'))
+            
         return df
         
     def _build_query(self):
