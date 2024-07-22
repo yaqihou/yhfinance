@@ -1,4 +1,7 @@
 
+from collections import namedtuple
+
+
 class ColName:
 
     suffixes: tuple[str, str] = ('_cur', '_sft')
@@ -56,6 +59,44 @@ class ColToDay:
     Month = ColName('MTD')
     Week = ColName('WTD')
 
+
+_T_MACD = namedtuple('MACD', ['EMA12', 'EMA26', 'MACD', 'Signal'])
+_MACD = _T_MACD(
+    ColName('EMA-12'),
+    ColName('EMA-26'),
+    ColName('MACD'),
+    ColName('MACDSignal'))
+
+_T_RSI = namedtuple('MACD', ['AvgGain', 'AvgLoss', 'RS', 'RSI'])
+_RSIWilder = _T_RSI(
+    ColName('WilderRSIAvgGain'),
+    ColName('WilderRSIAvgLoss'),
+    ColName('WilderRS'),
+    ColName('WilderRSI'))
+_RSIEma = _T_RSI(
+    ColName('EmaRSIAvgGain'),
+    ColName('EmaRSIAvgLoss'),
+    ColName('EmaRS'),
+    ColName('EmaRSI'))
+_RSICutler = _T_RSI(
+    ColName('CutlerRSIAvgGain'),
+    ColName('CutlerRSIAvgLoss'),
+    ColName('CutlerRS'),
+    ColName('CutlerRSI'))
+
+class ColIndMomentum:
+    
+    MACD = _MACD
+    RSIWilder = _RSIWilder
+    RSIEma = _RSIEma
+    RSICutler = _RSICutler
+
+# TODO - could further divided into MOmentum / etc.
+class ColInd:
+
+    Momentum = ColIndMomentum
+
+
 class ColInter:
     # Inter-tick features
     CloseOpenSpread = ColName('InterSpread')
@@ -98,6 +139,7 @@ class Col:
     Inter = ColInter
     Rolling = ColRolling
     ToDay = ColToDay
+    Ind = ColInd
 
     # TODO - Need Intraday data
     # MorningMovement   = ColName('MorningMovement')

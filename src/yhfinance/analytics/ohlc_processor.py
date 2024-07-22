@@ -98,6 +98,12 @@ class _OHLCBaseProcessor(_OHLCBase):
 
         return self
 
+    def __add__(self, obj: _OHLCBase):
+
+        common_cols = list(set(self._df.columns) & set(obj._df.columns))
+        return self._df.merge(obj._df, on=common_cols, how='left')
+
+
 
 class OHLCIntraProcessor(_OHLCBaseProcessor):
     """Populate intra-tick features
@@ -547,6 +553,108 @@ class OHLCTrailingProcessor(_OHLCBaseProcessor):
         return self
 
 
+class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
+
+    def add_macd(self,
+                 short_term_window: int = 12,
+                 long_term_window: int = 26,
+                 signal_window: int = 9,
+                 price_col: ColName = Col.Close):
+
+        ewm_short = self._df[price_col.name].ewm(span=short_term_window, adjust=False).mean()
+        ewm_long = self._df[price_col.name].ewm(span=long_term_window, adjust=False).mean()
+
+        macd = ewm_short - ewm_long
+        signal = macd.ewm(span=signal_window, adjust=False).mean()
+        
+        self._df[Col.Ind.Momentum.MACD.EMA12.name] = ewm_short
+        self._df[Col.Ind.Momentum.MACD.EMA26.name] = ewm_long
+        self._df[Col.Ind.Momentum.MACD.MACD.name] = macd
+        self._df[Col.Ind.Momentum.MACD.Signal.name] = signal
+
+        return self
+
+    def _get_gl_for_rsi(self):
+
+        _df = OHLCInterProcessor(self.df, tick_offset=-1).add_close_return().get_result()
+        _df = _df[[self.tick_col, Col.Inter.CloseReturn.gl]].copy()
+
+        ups = _df[Col.Inter.CloseReturn.gl].apply(lambda x: max(x, 0))
+        dns = _df[Col.Inter.CloseReturn.gl].apply(lambda x: -min(x, 0))
+
+        return _df, ups, dns
+
+
+    def add_rsi_wilder(self, n: int = 14):
+        """Using the original formula from Wilder
+        U / D is the difference between close prices,
+        using SMMA with alpha = 1 / n, i.e. y_t = (1-a) * y_t-1 + a * x_t 
+        First n -1 data is set to nan, and initial result starts from nth element
+        as the 
+        """
+        _df, ups, dns = self._get_gl_for_rsi()
+
+        ups.iloc[n] = ups.iloc[:n].mean()
+        ups.iloc[:n] = pd.NA
+        dns.iloc[n] = dns.iloc[:n].mean()
+        dns.iloc[:n] = pd.NA
+
+        alpha = 1 / n
+        ewm_ups = ups.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
+        ewm_dns = dns.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
+
+        _df[Col.Ind.Momentum.RSIWilder.AvgGain.name + f"_{n}"] = ewm_ups
+        _df[Col.Ind.Momentum.RSIWilder.AvgLoss.name + f"_{n}"] = ewm_dns
+        _df[Col.Ind.Momentum.RSIWilder.RS.name + f"_{n}"] = ewm_ups / ewm_dns
+        _df[Col.Ind.Momentum.RSIWilder.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
+
+        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
+
+        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+
+        return self
+
+
+    def add_rsi_ema(self, n: int = 14):
+        """The main difference from wilder's original is that instead of SMMA, we used a EMA
+        so that the first n obs are NOT nan
+        o"""
+        _df, ups, dns = self._get_gl_for_rsi()
+
+        alpha = 1 / n
+        ewm_ups = ups.ewm(alpha=alpha, adjust=False).mean()
+        ewm_dns = dns.ewm(alpha=alpha, adjust=False).mean()
+
+        _df[Col.Ind.Momentum.RSIEma.AvgGain.name + f"_{n}"] = ewm_ups
+        _df[Col.Ind.Momentum.RSIEma.AvgLoss.name + f"_{n}"] = ewm_dns
+        _df[Col.Ind.Momentum.RSIEma.RS.name + f"_{n}"] = ewm_ups / ewm_dns
+        _df[Col.Ind.Momentum.RSIEma.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
+
+        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
+
+        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+
+        return self
+
+    def add_rsi_cutler(self, n: int = 14):
+        """Cutler's RSI variation is based on SMA, to overcome the so-called 'Data Length Dependency'"""
+        _df, ups, dns = self._get_gl_for_rsi()
+
+        ewm_ups = ups.rolling(n).mean()
+        ewm_dns = dns.rolling(n).mean()
+
+        _df[Col.Ind.Momentum.RSICutler.AvgGain.name + f"_{n}"] = ewm_ups
+        _df[Col.Ind.Momentum.RSICutler.AvgLoss.name + f"_{n}"] = ewm_dns
+        _df[Col.Ind.Momentum.RSICutler.RS.name + f"_{n}"] = ewm_ups / ewm_dns
+        _df[Col.Ind.Momentum.RSICutler.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
+
+        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
+
+        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+
+        return self
+        
+        
 class OHLCToDayProcessor(_OHLCBaseProcessor):
 
     # TODO - could support intraday tick
@@ -768,7 +876,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
     suitable for seasonality analysis
     """
 
-    _T_CAL_INFO_COLS = Literal['Year', 'Month', 'WeekNum', 'WeekDay']
+    _T_CAL_INFO_COLS = Literal['Year', 'Month', 'Qtr', 'WeekNum', 'WeekDay']
     _calendar_info_cols = get_args(_T_CAL_INFO_COLS)
 
     def __init__(
@@ -783,6 +891,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
         # .dt can only be used with datetime but we may have dt.date type
         self._df['Year'] = self._df[self.tick_col].apply(lambda x: x.date().year)
         self._df['Month'] = self._df[self.tick_col].apply(lambda x: x.date().month)
+        self._df['Qtr'] = self._df[self.tick_col].apply(lambda x: 1 + (x.date().month - 1) // 3)
         # For week num 53, merge it to 52
         self._df['WeekNum'] = self._df[self.tick_col].apply(lambda x: max(x.date().isocalendar().week, 52))
         self._df['WeekDay'] = self._df[self.tick_col].apply(lambda x: x.date().weekday())
@@ -794,6 +903,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
             self,
             year: Optional[int] = None,
             month: Optional[int] = None,
+            qtr: Optional[int] = None,
             weekday: Optional[int] = None,
             weeknum: Optional[int] = None,
             copy: bool = True,
@@ -806,6 +916,7 @@ class OHLCFixedWindowProcessor(_OHLCBaseProcessor):
         for col, _in in [
                 ('Year', year),
                 ('Month', month),
+                ('Qtr', qtr),
                 ('WeekNum', weeknum),
                 ('WeekDay', weekday)
         ]:

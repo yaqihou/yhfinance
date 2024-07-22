@@ -17,7 +17,7 @@ from yhfinance.analytics.const import ColName
 from ._base import _OHLCBase
 from .const import Col, ColName
 from .ohlc_processor import OHLCFixedWindowProcessor
-from .plotter import OHLCMultiFigurePlotter
+from .plotter import OHLCMpfPlotter, OHLCMultiFigurePlotter
 
 
 @dataclass
@@ -290,7 +290,7 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
         return self.processor.df
 
     @property
-    def df_grouped(self):
+    def df_grouped(self) -> pd.DataFrame:
         _df = self._df_grouped.copy()
         _df[self.group_cols] = pd.DataFrame(_df['_key'].tolist(), index=_df.index)
         _df = _df.drop(columns=['_key'])
@@ -329,6 +329,10 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
         _df = pd.DataFrame.from_dict(_data_dict)
         self._df_grouped = self._df_grouped.merge(_df, on='_key', how='left')
         return
+
+    def pivot(self, values, index, columns, **kwargs):
+        """A wrapper around pd.pivot() ao apply on df_grouped"""
+        return pd.pivot_table(self.df_grouped, values=values, index=index, columns=columns, **kwargs)
 
     def _setup_overview_plot(self):
 
@@ -407,18 +411,18 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
                 plotter.select_subfig(subfig_idx)
                 plotter.set_subfig_suptitle(_title)
                 plotter.plot_basic(_df, type=type, volume=volume, mav=mav, **kwargs)
-            
 
     def plot_slice(
             self,
             year: Optional[int] = None,
             month: Optional[int] = None,
+            qtr: Optional[int] = None,
             weekday: Optional[int] = None,
             weeknum: Optional[int] = None):
-        _df = self.processor.get_slice(year=year, month=month, weekday=weekday, weeknum=weeknum)
+        _df = self.processor.get_slice(year=year, month=month, qtr=qtr, weekday=weekday, weeknum=weeknum)
 
-        _df = _df.set_index(self.tick_col)
-        mpf.plot(_df, volume=True, mav=(3, 6, 9))
+        with OHLCMpfPlotter(tick_col=self.tick_col) as plotter:
+            plotter.plot_basic(_df, volume=True, mav=(3, 6, 9))
         plt.show()
 
 
