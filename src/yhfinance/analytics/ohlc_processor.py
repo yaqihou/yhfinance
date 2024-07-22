@@ -195,9 +195,10 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         df = df.sort_values(by=tick_col)
         # tmp col for the target date
         if tick_offset > 0:
-            df['ShiftedTick'] = df[tick_col].values.tolist()[tick_offset:] + [pd.NA] * tick_offset
+            df['ShiftedTick'] = df[tick_col].values.tolist()[tick_offset:] + [pd.NaT] * tick_offset
         else: 
-            df['ShiftedTick'] = [pd.NA] * abs(tick_offset) + df[tick_col].values.tolist()[:tick_offset]
+            df['ShiftedTick'] = [pd.NaT] * abs(tick_offset) + df[tick_col].values.tolist()[:tick_offset]
+        df['ShiftedTick'] = pd.to_datetime(df['ShiftedTick'])
 
         df = pd.merge(df, df[[tick_col, *value_columns]].rename(columns={tick_col: 'ShiftedTick'}),
                       on='ShiftedTick', how='inner', suffixes=suffixes)
