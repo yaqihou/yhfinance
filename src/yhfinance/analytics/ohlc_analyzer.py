@@ -17,7 +17,7 @@ from yhfinance.analytics.const import ColName
 from ._base import _OHLCBase
 from .const import Col, ColName
 from .ohlc_processor import OHLCFixedWindowProcessor
-from .plotter import OHLCPlotter
+from .plotter import OHLCMultiFigurePlotter
 
 
 @dataclass
@@ -380,42 +380,33 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
         return " ".join(filter(lambda x: len(x) > 0, res))
             
     def plot_overview(self,
-                      x_col: Optional[ColName] = None,
-                      y_cols: list[ColName] = [Col.Close],
-                      type: Literal['simple', 'candle', 'renko', 'pnf', 'ohlc', 'line', 'hnf'] = 'simple',
-                      mav: Optional[int | list[int] | tuple[int, ...]] = None,
-                      volume: bool = False,
-                      hide_xaxis: bool = True,
-                      tight_layout: bool = False
+                      type: OHLCMultiFigurePlotter._T_TYPE_LITERAL = 'line',
+                      volume: bool = True,
+                      mav=(3,),
+                      tight_layout: bool = False,
+                      **kwargs,
                       ):
 
         nrows, ncols, subfig_idx_map = self._setup_overview_plot()
 
-        with OHLCPlotter(tick_col=self.tick_col,
-                         ncols=ncols,
-                         nrows=nrows,
-                         tight_layout=tight_layout) as plotter:
+        with OHLCMultiFigurePlotter(
+                tick_col=self.tick_col,
+                ncols=ncols,
+                nrows=nrows,
+                tight_layout=tight_layout) as plotter:
 
             for _key in tqdm(self._uniq_group_key, desc='Generating plots'):
 
                 subfig_idx = subfig_idx_map[_key]
                 _df = self.processor.get_slice(
                     **{x.lower(): y for x, y in zip(self.group_cols, _key)}
-                )
+                ).set_index(self.tick_col)
                 # Pretty ax_title
                 _title = self._prettify_subtitle(_key)
-                plotter.plot_subfig(
-                    subfig_idx,
-                    _df,
-                    x_col=x_col,
-                    y_cols=y_cols,
-                    type=type,
-                    mav=mav,
-                    volume=volume,
-                    hide_xaxis=hide_xaxis,
-                    # 
-                    subfig_title=_title
-                )
+
+                plotter.select_subfig(subfig_idx)
+                plotter.set_subfig_suptitle(_title)
+                plotter.plot_basic(_df, type=type, volume=volume, mav=mav, **kwargs)
             
 
     def plot_slice(
