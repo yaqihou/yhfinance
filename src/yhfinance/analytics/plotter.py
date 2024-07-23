@@ -32,7 +32,11 @@ class OHLCMpfPlotter:
                            'kenan', 'mike', 'nightclouds', 'sas',
                            'starsandstripes', 'tradingview', 'yahoo'] = "default",
             panel_ratios: Optional[tuple[float, float] | tuple[float, ...] | list[float]] = None,
-            title: Optional[str] = None
+            title: Optional[str] = None,
+            # Finer control in postprocess
+            move_legend_outside: bool = False,
+            # When there are two axis, merge it into the same legend
+            merge_legend_for_each_panel: bool = True
     ):
 
         self.tick_col = tick_col
@@ -49,6 +53,12 @@ class OHLCMpfPlotter:
         self.style = style
         self._panel_ratios = panel_ratios
         self.figure_title = title
+
+
+        self.move_legend_outside = move_legend_outside
+        self.merge_legend_for_each_panel = merge_legend_for_each_panel
+        
+        
         # At most 32 panels are supported
         self.reset()
 
@@ -66,14 +76,62 @@ class OHLCMpfPlotter:
         self._taken_panel_nums = []
         self._additional_plots = []
 
-    # TODO
-    def move_legend_outside(self):
-        pass
+    @staticmethod
+    def __pp_utils_group_ax_by_panel(axes):
+        grouped_axes = dict()
+        for ax in axes:
+            grouped_axes.setdefault(ax.bbox.bounds, [])
+            grouped_axes[ax.bbox.bounds].append(ax)
 
-    # TODO
-    def postprocess(self):
+        assert all(map(lambda x: len(x) <= 2, grouped_axes.values()))
+
+        return grouped_axes
+
+    def _pp_move_legend_outside(self, fig, axes):
+
+        grouped_axes = self.__pp_utils_group_ax_by_panel(axes)
+
+        for _axes in grouped_axes.values():
+            # Only need to merge when both have legend
+            if len(_axes) == 1:
+                _axes[0].legend(bbox_to_anchor = (1.05, 0.9))
+            else:
+                if all(map(lambda x: x.get_legend() is not None, _axes)):
+                    _axes[0].legend(bbox_to_anchor = (1.05, 0.9), loc='upper left')
+                    _axes[1].legend(bbox_to_anchor = (1.05, 0.0), loc='lower left')
+                elif any(map(lambda x: x.get_legend() is not None, _axes)):
+                    _ax = _axes[0] if _axes[0].get_legend() is not None else _axes[1]
+                    _ax.legend(bbox_to_anchor = (1.05, 0.9))
+
+        return
+
+    def _pp_merge_legend_for_each_panel(self, fig, axes):
+
+        grouped_axes = self.__pp_utils_group_ax_by_panel(axes)
+
+        for _axes in grouped_axes.values():
+            # Only need to merge when both have legend
+            if len(_axes) > 1 and all(map(lambda x: x.get_legend() is not None, _axes)):
+                leg1, leg2 = _axes[0].get_legend(), _axes[1].get_legend()
+
+                artists = (leg1.get_lines() + leg1.get_patches()
+                            + leg2.get_lines() + leg2.get_patches())
+                labels = [l.get_label() for l in artists]
+
+                _axes[0].legend(artists, labels)
+                _axes[1].legend([], [])
+        
+        return
+        
+
+    def postprocess(self, fig, axes):
         """Add y axis and etc"""
-        pass
+
+        if self.merge_legend_for_each_panel:
+            self._pp_merge_legend_for_each_panel(fig, axes)
+        if self.move_legend_outside:
+            self._pp_move_legend_outside(fig, axes)
+        return
 
     @property
     def panel_num(self) -> int:
@@ -94,7 +152,9 @@ class OHLCMpfPlotter:
         ret = {'returnfig': True,
                'volume_panel': self.volume_panel,
                'volume': self.volume,
-               'main_panel': self.main_panel}
+               'main_panel': self.main_panel,
+               'style': self.style,
+               }
 
         for _key, _val in [
                 ('addplot', self._additional_plots),
@@ -122,10 +182,12 @@ class OHLCMpfPlotter:
         if self.tick_col in df.columns:
             df = df.set_index(self.tick_col)
 
-        ret = mpf.plot(df, **kwargs, **self.plotter_args) 
+        fig, axes = mpf.plot(df, **kwargs, **self.plotter_args) 
+        self.postprocess(fig, axes)
+        
         # Reset additional_plots
         self.reset()
-        return ret
+        return fig, axes
 
     def plot_basic(
             self,
@@ -170,8 +232,8 @@ class OHLCMpfPlotter:
         })
         self._additional_plots += [
             mpf.make_addplot(df[rsi_col.RSI.name + f"_{rsi_n}"], type='line', color='r', label=f'{rsi_type.capitalize()} RSI ({rsi_n})',
-                             panel=new_panel_num),
-            mpf.make_addplot(_df_threshold['upper'], type='line', color='k', linestyle='--', panel=new_panel_num),
+                             panel=new_panel_num, secondary_y=True),
+            mpf.make_addplot(_df_threshold['upper'], type='line', color='k', linestyle='--', panel=new_panel_num, label='threshold', secondary_y=False),
             mpf.make_addplot(_df_threshold['lower'], type='line', color='k', linestyle='--', panel=new_panel_num)
         ]
 
@@ -179,41 +241,76 @@ class OHLCMpfPlotter:
 class OHLCMultiFigurePlotter(OHLCMpfPlotter):
     """Collection of different plot types for OHLC-type data
     """
-
     def __init__(
             self,
-            tick_col: str,
-            tight_layout: bool = True,
-            noshow: bool = False,
-            #
+            tick_col: str,  # the columnt used as index
             ncols: int = 1,
             nrows: int = 1,
-            figscale: float = 1,
+            figscale_main: Optional[float] = 1.,
+            figratio_main: Optional[tuple[float, float]] = (4, 3),
+            figsize_main: Optional[tuple[float, float]] = None,
+            padding_main: float = 0.4,
+            tight_layout: bool = False,
+            noshow: bool = False,
+            main_panel: int = 0,
+            volume_panel: int = 1,
+            volume: bool = False,
+            figscale: Optional[float] = None,
+            figratio: Optional[tuple[float, float]] = None,
+            figsize: Optional[tuple[float, float]] = None,
+            style: Literal['binance', 'binancedark', 'blueskies', 'brasil',
+                           'charles', 'checkers', 'classic', 'default', 'ibd',
+                           'kenan', 'mike', 'nightclouds', 'sas',
+                           'starsandstripes', 'tradingview', 'yahoo'] = "default",
+            panel_ratios: Optional[tuple[float, float] | tuple[float, ...] | list[float]] = None,
+            title: Optional[str] = None,
+            # Finer control in postprocess
+            move_legend_outside: bool = False,
+            merge_legend_for_each_panel: bool = True
     ):
-        super().__init__(tick_col, tight_layout, noshow)
+
+        super().__init__(
+            tick_col, tight_layout, noshow,
+            main_panel, volume_panel, volume,
+            figscale, figratio, figsize, style, panel_ratios,
+            title,
+            move_legend_outside
+        )
 
         self.ncols = ncols
         self.nrows = nrows
         # Useful for subfigures
-        self.figscale = figscale
-        self.figsize: tuple[float, float] = tuple(map(
-            lambda x: x * self.figscale,
-            (4 * ncols + 0.4 * (ncols - 1), 3 * nrows + 0.4 * (nrows - 1))
-        ))
+        self.figscale_main = figscale_main
+        self.figratio_main = figratio_main
+        self.padding_main = padding_main
+        if figsize_main is None:
+            w, h = figratio_main
+            self.figsize_main: tuple[float, float] = (
+                figscale_main * ( w * ncols + padding_main * (ncols - 1) ),
+                figscale_main * ( h * nrows + padding_main * (nrows - 1) )
+            )
+        else:
+            self.figsize_main = figsize_main
 
-        self.fig = plt.figure(figsize=self.figsize)
-        self.subfigs = self.fig.subfigures(nrows, ncols)
-        self.current_subifg = self.subfigs[0][0]
+        self.fig_main = plt.figure(figsize=self.figsize_main)
+        self.subfigs = self.fig_main.subfigures(nrows, ncols)
+        if ncols == 1 or nrows == 1:
+            self.current_subifg = self.subfigs[0]
+        else:
+            self.current_subifg = self.subfigs[0][0]
         
     def select_subfig(self, subfig_idx: int):
 
-        _idx_col = subfig_idx % self.ncols
-        _idx_row = subfig_idx // self.ncols
-        self.current_subifg = self.subfigs[_idx_row][_idx_col]
+        if self.ncols == 1 or self.nrows == 1:
+            self.current_subifg = self.subfigs[subfig_idx]
+        else:
+            _idx_col = subfig_idx % self.ncols
+            _idx_row = subfig_idx // self.ncols
+            self.current_subifg = self.subfigs[_idx_row][_idx_col]
 
     def set_subfig_suptitle(self, title):
         self.current_subifg.suptitle(title)
 
     @property
-    def mpf_plot_base_args(self):
+    def plotter_args(self):
         return {**super().plotter_args, 'subfig': self.current_subifg}
