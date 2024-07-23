@@ -101,7 +101,9 @@ class _OHLCBaseProcessor(_OHLCBase):
     def __add__(self, obj: _OHLCBase):
 
         common_cols = list(set(self._df.columns) & set(obj._df.columns))
-        return self._df.merge(obj._df, on=common_cols, how='left')
+        _df = self._df.merge(obj._df, on=common_cols, how='left')
+
+        return _OHLCBaseProcessor(df=_df, tick_col=self.tick_col)
 
 
 
