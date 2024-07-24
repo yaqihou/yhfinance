@@ -555,7 +555,10 @@ class OHLCTrailingProcessor(_OHLCBaseProcessor):
         return self
 
 
-class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
+# TODO - move all indicators outside processor into its own class
+#        each indicator will have its own class
+#        this way, we can define ploting function inside
+class OHLCIndicatorProcessor(_OHLCBaseProcessor):
 
     def add_macd(self,
                  short_term_window: int = 12,
@@ -576,6 +579,21 @@ class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
 
         return self
 
+    def _add_result_safely(self, df: pd.DataFrame):
+        """Add the result df to self._df without causing duplicated columns.
+        Need to make sure df contrains only the key column (tick_col) and desired results
+        """
+        drop_cols = []
+        for col in df.columns:
+            if col == self.tick_col:  continue
+            if col in self._df.columns:
+                print(f'Warning: found existing RSI result col {col}, dropping it')
+                drop_cols.append(col)
+        
+        if drop_cols:
+            self._df = self._df.drop(columns=drop_cols)
+        self._df = self._df.merge(df, how='left', on=self.tick_col)
+
     def _get_gl_for_rsi(self):
 
         _df = OHLCInterProcessor(self.df, tick_offset=-1).add_close_return().get_result()
@@ -583,9 +601,20 @@ class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
 
         ups = _df[Col.Inter.CloseReturn.gl].apply(lambda x: max(x, 0))
         dns = _df[Col.Inter.CloseReturn.gl].apply(lambda x: -min(x, 0))
+        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
 
         return _df, ups, dns
 
+    def _assign_rsi_result(self, df, col_rsi, n, ewm_ups, ewm_dns):
+        
+        df[col_rsi.AvgGain(n)] = ewm_ups
+        df[col_rsi.AvgLoss(n)] = ewm_dns
+        df[col_rsi.RS(n)] = ewm_ups / ewm_dns
+        df[col_rsi.RSI(n)] = 100 - (100 / (1 + ewm_ups / ewm_dns))
+
+        self._add_result_safely(df)
+
+        return
 
     def add_rsi_wilder(self, n: int = 14):
         """Using the original formula from Wilder
@@ -605,17 +634,9 @@ class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
         ewm_ups = ups.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
         ewm_dns = dns.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
 
-        _df[Col.Ind.Momentum.RSIWilder.AvgGain.name + f"_{n}"] = ewm_ups
-        _df[Col.Ind.Momentum.RSIWilder.AvgLoss.name + f"_{n}"] = ewm_dns
-        _df[Col.Ind.Momentum.RSIWilder.RS.name + f"_{n}"] = ewm_ups / ewm_dns
-        _df[Col.Ind.Momentum.RSIWilder.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
-
-        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
-
-        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+        self._assign_rsi_result(_df, Col.Ind.Momentum.RSIWilder, n, ewm_ups, ewm_dns)
 
         return self
-
 
     def add_rsi_ema(self, n: int = 14):
         """The main difference from wilder's original is that instead of SMMA, we used a EMA
@@ -627,14 +648,7 @@ class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
         ewm_ups = ups.ewm(alpha=alpha, adjust=False).mean()
         ewm_dns = dns.ewm(alpha=alpha, adjust=False).mean()
 
-        _df[Col.Ind.Momentum.RSIEma.AvgGain.name + f"_{n}"] = ewm_ups
-        _df[Col.Ind.Momentum.RSIEma.AvgLoss.name + f"_{n}"] = ewm_dns
-        _df[Col.Ind.Momentum.RSIEma.RS.name + f"_{n}"] = ewm_ups / ewm_dns
-        _df[Col.Ind.Momentum.RSIEma.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
-
-        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
-
-        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+        self._assign_rsi_result(_df, Col.Ind.Momentum.RSIEma, n, ewm_ups, ewm_dns)
 
         return self
 
@@ -645,17 +659,129 @@ class OHLCMomentumIndProcessor(_OHLCBaseProcessor):
         ewm_ups = ups.rolling(n).mean()
         ewm_dns = dns.rolling(n).mean()
 
-        _df[Col.Ind.Momentum.RSICutler.AvgGain.name + f"_{n}"] = ewm_ups
-        _df[Col.Ind.Momentum.RSICutler.AvgLoss.name + f"_{n}"] = ewm_dns
-        _df[Col.Ind.Momentum.RSICutler.RS.name + f"_{n}"] = ewm_ups / ewm_dns
-        _df[Col.Ind.Momentum.RSICutler.RSI.name + f"_{n}"] = 100 - (100 / (1 + ewm_ups / ewm_dns))
-
-        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
-
-        self._df = self._df.merge(_df, how='left', on=self.tick_col)
+        self._assign_rsi_result(_df, Col.Ind.Momentum.RSICutler, n, ewm_ups, ewm_dns)
 
         return self
+
+    def add_supertrend(self,
+                       period: int = 7,
+                       multiplier: int = 3,
+                       multiplier_dn: Optional[int] = None  # if None, the same as multiplier
+                       ):
+        """Add calculations related to Supertrend up/dn and the actual to display
+
+        The best thing about supertrend it sends out accurate signals
+        on precise time. The indicator is available on various trading
+        platforms free of cost. The indicator offers quickest technical
+        analysis to enable the intraday traders to make faster
+        decisions. As said above, it is extremely simple to use and
+        understand.
         
+        However, the indicator is not appropriate for all the
+        situations. It works when the market is trending. Hence it is best
+        to use for short-term technical analysis. Supertrend uses only the
+        two parameters of ATR and multiplier which are not sufficient under
+        certain conditions to predict the accurate direction of the market.
+        
+        Understanding and identifying buying and selling signals in
+        supertrend is the main crux for the intraday traders. Both the
+        downtrends as well uptrends are represented by the tool. The
+        flipping of the indicator over the closing price indicates
+        signal. A buy signal is indicated in green color whereas sell
+        signal is given as the indicator turns red. A sell signal occurs
+        when it closes above the price.
+        """
+
+        _df = OHLCInterProcessor(self.df, tick_offset=-1)._df_offset
+        # TR = max[(H-L), abs(H-Cp), abs(L-Cp)]
+        _df[Col.Ind.Band.TrueRange.name] = pd.concat([
+            _df[Col.High.cur] - _df[Col.Low.cur],
+            (_df[Col.High.cur] - _df[Col.Close.sft]).abs(),
+            (_df[Col.Low.cur] - _df[Col.Close.sft]).abs()
+            ], axis=1).max(axis=1)
+
+        # ATR_curr = ATR_prev * (n-1) / n + TR_curr * (1/n)
+        # i.e. a EWM with alpha = 1/n
+        # initial condition is ATR_0 = mean(sum(TR_n))
+
+        _tr = _df[Col.Ind.Band.TrueRange.name].copy()
+        _tr.iloc[period] = _tr.iloc[:period].mean()
+        _tr.iloc[:period] = pd.NA
+
+        alpha = 1 / period
+        _df[Col.Ind.Band.AvgTrueRange(period)] = _tr.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
+
+        _multi_up = multiplier
+        _multi_dn = multiplier_dn or multiplier
+
+        # NOTE - the rolling min is one way to use but that will introduce another paratermeter for the
+        #        window size
+        _df[Col.Ind.Band.SuperTrendUp(period, _multi_up)] = (
+            0.5 * (_df[Col.High.cur] + _df[Col.Low.cur])
+            + _multi_up * _df[Col.Ind.Band.AvgTrueRange(period)]
+        )#.rolling(period).min()
+        _df[Col.Ind.Band.SuperTrendDn(period, _multi_dn)] = (
+            0.5 * (_df[Col.High.cur] + _df[Col.Low.cur])
+            - _multi_dn * _df[Col.Ind.Band.AvgTrueRange(period)]
+        )#.rolling(period).max()
+
+        if _multi_dn == _multi_up:
+            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up)
+        else:
+            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up, _multi_dn)
+
+        supertrend = np.full((len(_df),), np.nan)
+        base_ups = _df[Col.Ind.Band.SuperTrendUp(period, _multi_up)].to_list()
+        base_dns = _df[Col.Ind.Band.SuperTrendDn(period, _multi_dn)].to_list()
+        final_ups = np.full((len(_df),), np.nan)
+        final_dns = np.full((len(_df),), np.nan)
+        closes = _df[Col.Close.cur].to_list()
+
+        final_ups[period] = base_ups[period]
+        final_dns[period] = base_dns[period]
+        supertrend[period] = base_ups[period]
+        # 1 for showing support, 0 for showing resistence
+        current_mode = 1
+        for idx in range(period+1, len(_df)):
+            # The previous resistence is too conservative
+            if closes[idx-1] > final_ups[idx-1]:
+                final_ups[idx] = base_ups[idx]
+            else:
+                final_ups[idx] = min(base_ups[idx], final_ups[idx-1])
+                
+            # The previous resistence is too conservative
+            if closes[idx-1] < final_dns[idx-1]:
+                final_dns[idx] = base_dns[idx]
+            else:
+                final_dns[idx] = max(base_dns[idx], final_dns[idx-1])
+
+            # Break support, switch to resistence mode
+            if closes[idx] < final_dns[idx]:
+                current_mode = 0
+            # Break resistence, switch to support mode
+            elif closes[idx] > final_ups[idx]:
+                current_mode = 1
+            # Otherwise, just keep current trend
+            supertrend[idx] = final_dns[idx] if current_mode == 1 else final_ups[idx]
+
+        # # TrendUp is the resistence
+        _df[_col_supertrend_name] = supertrend
+        # TODO - put the final bands to df
+        # _df[Col.Ind.Band.SuperTrendUp(period, _multi_up)] = final_ups
+        # _df[Col.Ind.Band.SuperTrendDn(period, _multi_dn)] = final_dns
+
+        _df = _df[[
+            self.tick_col,
+            Col.Ind.Band.TrueRange.name,
+            Col.Ind.Band.AvgTrueRange(period),
+            Col.Ind.Band.SuperTrendUp(period, _multi_up),
+            Col.Ind.Band.SuperTrendDn(period, _multi_dn),
+            _col_supertrend_name
+        ]]
+
+        self._add_result_safely(_df)
+        return self
+
         
 class OHLCToDayProcessor(_OHLCBaseProcessor):
 

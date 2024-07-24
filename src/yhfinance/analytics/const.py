@@ -6,9 +6,16 @@ class ColName:
 
     suffixes: tuple[str, str] = ('_cur', '_sft')
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, callback=None):
         self.name: str = name
+        self.callback = callback
 
+    def __call__(self, *args, **kwargs) -> str:
+        if self.callback is None:
+            return self.name
+        else:
+            return self.callback(self, *args, **kwargs)
+        
     @property
     def sft(self) -> str:
         return self.name + self.suffixes[1]
@@ -67,22 +74,27 @@ _MACD = _T_MACD(
     ColName('MACD'),
     ColName('MACDSignal'))
 
-_T_RSI = namedtuple('MACD', ['AvgGain', 'AvgLoss', 'RS', 'RSI'])
+def indicator_callback(self, *args, **kwargs):
+    return (self.name
+            + f"({','.join(map(str, args))})"
+            + ' '.join([f"{k}_{v}" for k, v in kwargs])
+            )
+_T_RSI = namedtuple('RSI', ['AvgGain', 'AvgLoss', 'RS', 'RSI'])
 _RSIWilder = _T_RSI(
-    ColName('WilderRSIAvgGain'),
-    ColName('WilderRSIAvgLoss'),
-    ColName('WilderRS'),
-    ColName('WilderRSI'))
+    ColName('WilderRSIAvgGain', callback=indicator_callback),
+    ColName('WilderRSIAvgLoss', callback=indicator_callback),
+    ColName('WilderRS', callback=indicator_callback),
+    ColName('WilderRSI', callback=indicator_callback))
 _RSIEma = _T_RSI(
-    ColName('EmaRSIAvgGain'),
-    ColName('EmaRSIAvgLoss'),
-    ColName('EmaRS'),
-    ColName('EmaRSI'))
+    ColName('EmaRSIAvgGain', callback=indicator_callback),
+    ColName('EmaRSIAvgLoss', callback=indicator_callback),
+    ColName('EmaRS', callback=indicator_callback),
+    ColName('EmaRSI', callback=indicator_callback))
 _RSICutler = _T_RSI(
-    ColName('CutlerRSIAvgGain'),
-    ColName('CutlerRSIAvgLoss'),
-    ColName('CutlerRS'),
-    ColName('CutlerRSI'))
+    ColName('CutlerRSIAvgGain', callback=indicator_callback),
+    ColName('CutlerRSIAvgLoss', callback=indicator_callback),
+    ColName('CutlerRS', callback=indicator_callback),
+    ColName('CutlerRSI', callback=indicator_callback))
 
 class ColIndMomentum:
     
@@ -91,10 +103,21 @@ class ColIndMomentum:
     RSIEma = _RSIEma
     RSICutler = _RSICutler
 
+
+class ColIndBand:
+
+    TrueRange = ColName('TR')
+    AvgTrueRange = ColName('ATR', callback=indicator_callback)
+    SuperTrendUp = ColName('SupertrendUp', callback=indicator_callback)
+    SuperTrendDn = ColName('SupertrendDn', callback=indicator_callback)
+    SuperTrend = ColName('Supertrend', callback=indicator_callback)
+
+    
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
 
     Momentum = ColIndMomentum
+    Band = ColIndBand
 
 
 class ColInter:

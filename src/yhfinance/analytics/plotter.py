@@ -203,11 +203,18 @@ class OHLCMpfPlotter:
         new_panel_num = self.get_new_panel_num()
 
         self._additional_plots += [
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.EMA12.name], color='lime', panel=self.main_panel, label='MACD-EMA12'),
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.EMA26.name], color='c', panel=self.main_panel, label='MACD-EMA26'),
+            mpf.make_addplot(
+                df[Col.Ind.Momentum.MACD.EMA12.name], color='lime',
+                panel=self.main_panel, label='MACD-EMA12'),
+            mpf.make_addplot(
+                df[Col.Ind.Momentum.MACD.EMA26.name], color='c',
+                panel=self.main_panel, label='MACD-EMA26'),
             # 
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.MACD.name], color='fuchsia', panel=new_panel_num, label='MACD', secondary_y=True),
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.Signal.name], color='b', panel=new_panel_num, label='Signal', secondary_y=True),
+            mpf.make_addplot(df[Col.Ind.Momentum.MACD.MACD.name],
+                             color='fuchsia', panel=new_panel_num,
+                             label='MACD', secondary_y=True),
+            mpf.make_addplot(df[Col.Ind.Momentum.MACD.Signal.name],
+                             color='b', panel=new_panel_num, label='Signal', secondary_y=True),
             mpf.make_addplot(df[Col.Ind.Momentum.MACD.MACD.name] -  df[Col.Ind.Momentum.MACD.Signal.name],
                              color='dimgray', panel=new_panel_num, type='bar', width=0.7, secondary_y=False)
         ]
@@ -231,11 +238,55 @@ class OHLCMpfPlotter:
             'lower': [threshold[0]] * len(df)
         })
         self._additional_plots += [
-            mpf.make_addplot(df[rsi_col.RSI.name + f"_{rsi_n}"], type='line', color='r', label=f'{rsi_type.capitalize()} RSI ({rsi_n})',
-                             panel=new_panel_num, secondary_y=True),
-            mpf.make_addplot(_df_threshold['upper'], type='line', color='k', linestyle='--', panel=new_panel_num, label='threshold', secondary_y=False),
-            mpf.make_addplot(_df_threshold['lower'], type='line', color='k', linestyle='--', panel=new_panel_num)
+            mpf.make_addplot(df[rsi_col.RSI(rsi_n)], type='line', color='r',
+                             label=f'{rsi_type.capitalize()} RSI ({rsi_n})',
+                             panel=new_panel_num, secondary_y=False),
+            mpf.make_addplot(_df_threshold['upper'], type='line', color='k',
+                             linestyle='--', panel=new_panel_num, secondary_y=False),
+            mpf.make_addplot(_df_threshold['lower'], type='line', color='k',
+                             linestyle='--', panel=new_panel_num, secondary_y=False)
         ]
+
+        return self
+
+    def add_supertrend(
+            self,
+            df,
+            period: int = 7,
+            multiplier: int = 3,
+            multiplier_dn: Optional[int] = None,
+            # TODO - add the upper / lower arrow to indicate the switch
+            with_raw_atr_band: bool = False,
+            panel: Optional[int] = None  # on main panel by default
+    ):
+
+        _multi_up = multiplier
+        _multi_dn = multiplier_dn or multiplier
+
+        if _multi_dn == _multi_up:
+            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up)
+        else:
+            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up, _multi_dn)
+
+        if with_raw_atr_band:
+            fill_between = {
+                'y1': df[Col.Ind.Band.SuperTrendUp(period, _multi_up)].values,
+                'y2': df[Col.Ind.Band.SuperTrendDn(period, _multi_dn)].values,
+                'alpha': 0.3,
+                'color': 'dimgray'
+            }
+        else:
+            fill_between = None
+
+        self._additional_plots += [
+            mpf.make_addplot(
+                df[_col_supertrend_name], type='line', color='r', label=_col_supertrend_name,
+                panel=panel or self.main_panel,
+                fill_between=fill_between
+            )
+        ]
+
+        return self
 
 
 class OHLCMultiFigurePlotter(OHLCMpfPlotter):
@@ -274,7 +325,8 @@ class OHLCMultiFigurePlotter(OHLCMpfPlotter):
             main_panel, volume_panel, volume,
             figscale, figratio, figsize, style, panel_ratios,
             title,
-            move_legend_outside
+            move_legend_outside=move_legend_outside,
+            merge_legend_for_each_panel=merge_legend_for_each_panel
         )
 
         self.ncols = ncols
