@@ -10,6 +10,7 @@ import mplfinance as mpf
 import pandas as pd
 
 from .const import Col, ColName
+from .indicators import _BaseIndicator
 
 
 _T_TYPE_LITERAL = Literal['candle', 'renko', 'pnf', 'ohlc', 'line', 'hnf']
@@ -198,94 +199,17 @@ class OHLCMpfPlotter:
     ):
         return self.plot(df, type=type, mav=mav, **kwargs)
 
-    # TODO - add historical recession overlay
-    def add_macd_panel(self, df):
-        new_panel_num = self.get_new_panel_num()
+    def add_indicator(self, indicator: _BaseIndicator, *args, **kwargs):
 
-        self._additional_plots += [
-            mpf.make_addplot(
-                df[Col.Ind.Momentum.MACD.EMA12.name], color='lime',
-                panel=self.main_panel, label='MACD-EMA12'),
-            mpf.make_addplot(
-                df[Col.Ind.Momentum.MACD.EMA26.name], color='c',
-                panel=self.main_panel, label='MACD-EMA26'),
-            # 
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.MACD.name],
-                             color='fuchsia', panel=new_panel_num,
-                             label='MACD', secondary_y=True),
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.Signal.name],
-                             color='b', panel=new_panel_num, label='Signal', secondary_y=True),
-            mpf.make_addplot(df[Col.Ind.Momentum.MACD.MACD.name] -  df[Col.Ind.Momentum.MACD.Signal.name],
-                             color='dimgray', panel=new_panel_num, type='bar', width=0.7, secondary_y=False)
-        ]
-        return self
-
-    def add_rsi_panel(self,
-                      df,
-                      rsi_type: Literal['wilder', 'ema', 'cutler'] = 'cutler',
-                      rsi_n: int = 14,
-                      threshold: tuple[float, float] = (30, 70)
-                      ):
-
-        rsi_col = {'wilder': Col.Ind.Momentum.RSIWilder,
-                   'ema': Col.Ind.Momentum.RSIEma,
-                   'cutler': Col.Ind.Momentum.RSICutler}[rsi_type]
-        
-        new_panel_num = self.get_new_panel_num()
-
-        _df_threshold = pd.DataFrame.from_dict({
-            'upper': [threshold[1]] * len(df),
-            'lower': [threshold[0]] * len(df)
-        })
-        self._additional_plots += [
-            mpf.make_addplot(df[rsi_col.RSI(rsi_n)], type='line', color='r',
-                             label=f'{rsi_type.capitalize()} RSI ({rsi_n})',
-                             panel=new_panel_num, secondary_y=False),
-            mpf.make_addplot(_df_threshold['upper'], type='line', color='k',
-                             linestyle='--', panel=new_panel_num, secondary_y=False),
-            mpf.make_addplot(_df_threshold['lower'], type='line', color='k',
-                             linestyle='--', panel=new_panel_num, secondary_y=False)
-        ]
-
-        return self
-
-    def add_supertrend(
-            self,
-            df,
-            period: int = 7,
-            multiplier: int = 3,
-            multiplier_dn: Optional[int] = None,
-            # TODO - add the upper / lower arrow to indicate the switch
-            with_raw_atr_band: bool = False,
-            panel: Optional[int] = None  # on main panel by default
-    ):
-
-        _multi_up = multiplier
-        _multi_dn = multiplier_dn or multiplier
-
-        if _multi_dn == _multi_up:
-            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up)
+        if indicator.need_new_panel_num:
+            new_panel_num = self.get_new_panel_num()
         else:
-            _col_supertrend_name = Col.Ind.Band.SuperTrend(period, _multi_up, _multi_dn)
+            new_panel_num = None
 
-        if with_raw_atr_band:
-            fill_between = {
-                'y1': df[Col.Ind.Band.SuperTrendUp(period, _multi_up)].values,
-                'y2': df[Col.Ind.Band.SuperTrendDn(period, _multi_dn)].values,
-                'alpha': 0.3,
-                'color': 'dimgray'
-            }
-        else:
-            fill_between = None
+        _plotter_args = self.plotter_args.copy()
+        _plotter_args['new_panel_num'] = new_panel_num
 
-        self._additional_plots += [
-            mpf.make_addplot(
-                df[_col_supertrend_name], type='line', color='r', label=_col_supertrend_name,
-                panel=panel or self.main_panel,
-                fill_between=fill_between
-            )
-        ]
-
+        self._additional_plots += indicator.make_addplot(_plotter_args, *args, **kwargs)
         return self
 
 

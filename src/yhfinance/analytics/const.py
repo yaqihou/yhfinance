@@ -104,13 +104,19 @@ class ColIndMomentum:
     RSICutler = _RSICutler
 
 
+_T_SUPERTREND = namedtuple('SuperTrend', ['Up', 'Dn', 'Final', 'Mode'])
+_SUPERTREND = _T_SUPERTREND(
+    ColName('SupertrendUp', callback=indicator_callback),
+    ColName('SupertrendDn', callback=indicator_callback),
+    ColName('Supertrend', callback=indicator_callback),
+    ColName('SupertrendMode')
+)
 class ColIndBand:
 
     TrueRange = ColName('TR')
     AvgTrueRange = ColName('ATR', callback=indicator_callback)
-    SuperTrendUp = ColName('SupertrendUp', callback=indicator_callback)
-    SuperTrendDn = ColName('SupertrendDn', callback=indicator_callback)
-    SuperTrend = ColName('Supertrend', callback=indicator_callback)
+    SuperTrend = _SUPERTREND
+
 
     
 # TODO - could further divided into MOmentum / etc.

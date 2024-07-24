@@ -24,3 +24,6 @@ class _OHLCBase:
     @property
     def df(self):
         return self._df
+
+    def get_result(self):
+        return self.df
