@@ -1,6 +1,8 @@
 # 
+from collections import defaultdict
 from typing import Optional
 
+from matplotlib.pyplot import fill_between
 import numpy as np
 import pandas as pd
 
@@ -116,12 +118,25 @@ class IndMACD(_BaseIndicator):
         _col_signal = Col.Ind.Momentum.MACD.Signal(
             self.short_term_window, self.long_term_window, self.signal_window)
 
+        # Add color to histogram
+        histogram = (self.df[_col_macd] -  self.df[_col_signal]).values
+        # Rising trend
+        histogram_rise = np.full_like(histogram, np.nan)
+        # Decreasing trend 
+        histogram_fall = np.full_like(histogram, np.nan)
+
+        for idx, val in enumerate(histogram[1:]):
+            if val > histogram[idx-1]:
+                histogram_rise[idx] = histogram[idx]
+            else:
+                histogram_fall[idx] = histogram[idx]
+
         return [
             mpf.make_addplot(
-                self.df[Col.Ind.Momentum.MACD.EMA12.name], color='lime',
+                self.df[Col.Ind.Momentum.MACD.EMA12.name], linestyle='--',
                 panel=main_panel, label='MACD-EMA12'),
             mpf.make_addplot(
-                self.df[Col.Ind.Momentum.MACD.EMA26.name], color='c',
+                self.df[Col.Ind.Momentum.MACD.EMA26.name], linestyle=':',
                 panel=main_panel, label='MACD-EMA26'),
             # 
             mpf.make_addplot(self.df[_col_macd],
@@ -129,8 +144,13 @@ class IndMACD(_BaseIndicator):
                              label='MACD', secondary_y=True),
             mpf.make_addplot(self.df[_col_signal],
                              color='b', panel=new_panel_num, label='Signal', secondary_y=True),
-            mpf.make_addplot(self.df[_col_macd] -  self.df[_col_signal],
-                             color='dimgray', panel=new_panel_num,
+            # TODO - use style value from mplfinance
+            # TODO - check how does mpf implement the volume
+            mpf.make_addplot(histogram_rise,
+                             color='lime', panel=new_panel_num,
+                             type='bar', width=0.7, secondary_y=False),
+            mpf.make_addplot(histogram_fall,
+                             color='r', panel=new_panel_num,
                              type='bar', width=0.7, secondary_y=False)
         ]
 
@@ -482,15 +502,47 @@ class IndSupertrend(_BaseIndicator):
         _multi_up = self._multi_up
         _multi_dn = self._multi_dn
 
+
         kwargs = dict(
                 type='line',
-                color='r',
-                label=self._col_supertrend_name,
+                width=1,
                 panel=plotter_args['main_panel']
         )
+        kwargs_up = {'color': 'r', **kwargs}
+        kwargs_dn = {'color': 'lime', **kwargs}
+
+
+        _df_up = self.df.copy()
+        _df_up.loc[_df_up[Col.Ind.Band.SuperTrend.Mode.name] == 1, self._col_supertrend_name] = pd.NA
+        ups = _df_up[self._col_supertrend_name].values
+        
+        _df_dn = self.df.copy()
+        _df_dn.loc[_df_dn[Col.Ind.Band.SuperTrend.Mode.name] == 0, self._col_supertrend_name] = pd.NA
+        dns = _df_dn[self._col_supertrend_name].values
+
+        s2r_markers = np.full((len(dns)), np.nan)
+        r2s_markers = np.full((len(dns)), np.nan)
+
+        modes = self.df[Col.Ind.Band.SuperTrend.Mode.name].values
+        print(modes)
+        # Locate the transition point, add markes and fill in the gap
+        for idx, mode in enumerate(modes[:-1]):
+            if mode not in {0, 1}: continue  # first n points are NA
+
+            if mode != modes[idx+1]:
+                print(idx, mode, modes[idx+1])
+                # support to resistence: fall breach the support, red line, red downward arrow above
+                if mode == 1: 
+                    ups[idx] = dns[idx]
+                    # TODO - add markers
+                    s2r_markers[idx+1] = ups[idx+1] * 1.05
+                else:
+                    # resistence to support: risk breach the resistence, green line, green upward arrow below
+                    dns[idx] = ups[idx]
+                    r2s_markers[idx+1] = dns[idx+1] * 0.95
 
         if with_raw_atr_band:
-            kwargs['fill_between'] = {
+            fill_between = {
                 'y1': self.df[Col.Ind.Band.SuperTrend.Up(period, _multi_up)].values,
                 'y2': self.df[Col.Ind.Band.SuperTrend.Dn(period, _multi_dn)].values,
                 'alpha': 0.3,
@@ -498,5 +550,10 @@ class IndSupertrend(_BaseIndicator):
             }
 
         return [
-            mpf.make_addplot(self.df[self._col_supertrend_name], **kwargs)
+            mpf.make_addplot(ups, fill_between=fill_between, **kwargs_up),
+            mpf.make_addplot(dns, **kwargs_dn),
+            mpf.make_addplot(s2r_markers, type='scatter', markersize=200, color='r', marker='v'),
+            mpf.make_addplot(r2s_markers, type='scatter', markersize=200, color='lime', marker='^'),
         ]
+
+    
