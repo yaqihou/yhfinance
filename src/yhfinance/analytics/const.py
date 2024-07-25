@@ -96,14 +96,6 @@ _RSICutler = _T_RSI(
     ColName('CutlerRS', callback=indicator_callback),
     ColName('CutlerRSI', callback=indicator_callback))
 
-class ColIndMomentum:
-    
-    MACD = _MACD
-    RSIWilder = _RSIWilder
-    RSIEma = _RSIEma
-    RSICutler = _RSICutler
-
-
 _T_SUPERTREND = namedtuple('SuperTrend', ['Up', 'Dn', 'Final', 'Mode'])
 _SUPERTREND = _T_SUPERTREND(
     ColName('SupertrendUp', callback=indicator_callback),
@@ -111,20 +103,29 @@ _SUPERTREND = _T_SUPERTREND(
     ColName('Supertrend', callback=indicator_callback),
     ColName('SupertrendMode')
 )
-class ColIndBand:
 
-    TrueRange = ColName('TR')
-    AvgTrueRange = ColName('ATR', callback=indicator_callback)
-    SuperTrend = _SUPERTREND
-
-
+_T_AROON = namedtuple('SuperTrend', ['Up', 'Dn', 'Oscillator'])
+_AROON = _T_AROON(
+    ColName('AroonUp', callback=indicator_callback),
+    ColName('AroonDn', callback=indicator_callback),
+    ColName('AroonOscillator', callback=indicator_callback),
+)
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
 
-    Momentum = ColIndMomentum
-    Band = ColIndBand
+    # TODO - add function to list by categories
 
+    MACD = _MACD
+    RSIWilder = _RSIWilder
+    RSIEma = _RSIEma
+    RSICutler = _RSICutler
+
+    Aroon = _AROON
+
+    TrueRange = ColName('TR')
+    AvgTrueRange = ColName('ATR', callback=indicator_callback)
+    SuperTrend = _SUPERTREND
 
 class ColInter:
     # Inter-tick features

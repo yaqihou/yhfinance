@@ -1,8 +1,8 @@
 # 
+import heapq
 from collections import defaultdict
 from typing import Optional
 
-from matplotlib.pyplot import fill_between
 import numpy as np
 import pandas as pd
 
@@ -101,13 +101,13 @@ class IndMACD(_BaseIndicator):
 
         df = self._df[[self.tick_col]].copy()
         
-        df[Col.Ind.Momentum.MACD.EMA12.name] = ewm_short
-        df[Col.Ind.Momentum.MACD.EMA26.name] = ewm_long
-        df[Col.Ind.Momentum.MACD.MACD(
+        df[Col.Ind.MACD.EMA12.name] = ewm_short
+        df[Col.Ind.MACD.EMA26.name] = ewm_long
+        df[Col.Ind.MACD.MACD(
             self.short_term_window, self.long_term_window, self.signal_window
         )] = macd
 
-        df[Col.Ind.Momentum.MACD.Signal(
+        df[Col.Ind.MACD.Signal(
             self.short_term_window, self.long_term_window, self.signal_window)] = signal
 
         self._add_result_safely(df)
@@ -122,9 +122,9 @@ class IndMACD(_BaseIndicator):
         main_panel = plotter_args['main_panel']
         new_panel_num = plotter_args['new_panel_num']
 
-        _col_macd = Col.Ind.Momentum.MACD.MACD(
+        _col_macd = Col.Ind.MACD.MACD(
             self.short_term_window, self.long_term_window, self.signal_window)
-        _col_signal = Col.Ind.Momentum.MACD.Signal(
+        _col_signal = Col.Ind.MACD.Signal(
             self.short_term_window, self.long_term_window, self.signal_window)
 
         # Add color to histogram
@@ -142,10 +142,10 @@ class IndMACD(_BaseIndicator):
 
         return [
             mpf.make_addplot(
-                self.df[Col.Ind.Momentum.MACD.EMA12.name], linestyle='--',
+                self.df[Col.Ind.MACD.EMA12.name], linestyle='--',
                 panel=main_panel, label='MACD-EMA12'),
             mpf.make_addplot(
-                self.df[Col.Ind.Momentum.MACD.EMA26.name], linestyle=':',
+                self.df[Col.Ind.MACD.EMA26.name], linestyle=':',
                 panel=main_panel, label='MACD-EMA26'),
             # 
             mpf.make_addplot(self.df[_col_macd],
@@ -244,7 +244,7 @@ class IndWilderRSI(_IndRSI):
 
     @property
     def rsi_col(self) -> _T_RSI:
-        return Col.Ind.Momentum.RSIWilder
+        return Col.Ind.RSIWilder
 
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
@@ -268,7 +268,7 @@ class IndEmaRSI(_IndRSI):
 
     @property
     def rsi_col(self) -> _T_RSI:
-        return Col.Ind.Momentum.RSIEma
+        return Col.Ind.RSIEma
 
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
@@ -285,7 +285,7 @@ class IndCutlerRSI(_IndRSI):
 
     @property
     def rsi_col(self) -> _T_RSI:
-        return Col.Ind.Momentum.RSICutler
+        return Col.Ind.RSICutler
 
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
@@ -312,7 +312,7 @@ class IndTrueRange(_BaseIndicator):
         _df = OHLCInterProcessor(self.df, tick_offset=-1)._df_offset
 
         # TR = max[(H-L), abs(H-Cp), abs(L-Cp)]
-        _df[Col.Ind.Band.TrueRange.name] = pd.concat([
+        _df[Col.Ind.TrueRange.name] = pd.concat([
             _df[Col.High.cur] - _df[Col.Low.cur],
             (_df[Col.High.cur] - _df[Col.Close.sft]).abs(),
             (_df[Col.Low.cur] - _df[Col.Close.sft]).abs()
@@ -348,15 +348,15 @@ class IndAvgTrueRange(_BaseIndicator):
         ind_tr = IndTrueRange(self.df, self.tick_col, period)
         _df = ind_tr.get_result()
 
-        _tr = _df[Col.Ind.Band.TrueRange.name].copy()
+        _tr = _df[Col.Ind.TrueRange.name].copy()
         _tr.iloc[period] = _tr.iloc[:period].mean()
         _tr.iloc[:period] = pd.NA
 
         alpha = 1 / period
-        _df[Col.Ind.Band.AvgTrueRange(period)] = _tr.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
+        _df[Col.Ind.AvgTrueRange(period)] = _tr.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
 
         if not self.keep_tr_result:
-            _df = _df[[self.tick_col, Col.Ind.Band.AvgTrueRange(period)]]
+            _df = _df[[self.tick_col, Col.Ind.AvgTrueRange(period)]]
 
         self._add_result_safely(_df)
 
@@ -371,10 +371,10 @@ class IndAvgTrueRange(_BaseIndicator):
 
         return [
             mpf.make_addplot(
-                self.df[Col.Ind.Band.AvgTrueRange(self.period)],
+                self.df[Col.Ind.AvgTrueRange(self.period)],
                 type='line',
                 panel=plotter_args['new_panel_num'],
-                label=Col.Ind.Band.AvgTrueRange(self.period)
+                label=Col.Ind.AvgTrueRange(self.period)
             )
         ]
 
@@ -401,11 +401,11 @@ class IndATRBand(IndAvgTrueRange):
         _df = self.df.copy()
         _df['Up'] = (
             _df[self.shift_ref_col.name]
-            + self.multiplier * _df[Col.Ind.Band.AvgTrueRange(self.period)]
+            + self.multiplier * _df[Col.Ind.AvgTrueRange(self.period)]
         )
         _df['Dn'] = (
             _df[self.shift_ref_col.name]
-            - self.multiplier * _df[Col.Ind.Band.AvgTrueRange(self.period)]
+            - self.multiplier * _df[Col.Ind.AvgTrueRange(self.period)]
         )
 
         return [
@@ -416,10 +416,10 @@ class IndATRBand(IndAvgTrueRange):
                     'y2': _df['Dn'].values,
                     'alpha': 0.3,
                     'color': 'dimgray',
-                    label=f'{Col.Ind.Band.AvgTrueRange(self.period)} Band'
                 },
                 alpha=0.,
                 panel=plotter_args['main_panel'],
+                label=f'{Col.Ind.AvgTrueRange(self.period)} Band'
             )
         ]
 
@@ -464,9 +464,9 @@ class IndSupertrend(_BaseIndicator):
     @property
     def _col_supertrend_name(self) -> str:
         if self._multi_dn == self._multi_up:
-            return Col.Ind.Band.SuperTrend.Final(self.period, self._multi_up)
+            return Col.Ind.SuperTrend.Final(self.period, self._multi_up)
         else:
-            return Col.Ind.Band.SuperTrend.Final(self.period, self._multi_up, self._multi_dn)
+            return Col.Ind.SuperTrend.Final(self.period, self._multi_up, self._multi_dn)
 
     def _calc(self) -> None:
         period = self.period
@@ -478,29 +478,29 @@ class IndSupertrend(_BaseIndicator):
 
         # NOTE - the rolling min is one way to use but that will introduce another paratermeter for the
         #        window size
-        _df[Col.Ind.Band.SuperTrend.Up(period, _multi_up)] = (
+        _df[Col.Ind.SuperTrend.Up(period, _multi_up)] = (
             0.5 * (_df[Col.High.cur] + _df[Col.Low.cur])
-            + _multi_up * _df[Col.Ind.Band.AvgTrueRange(period)]
+            + _multi_up * _df[Col.Ind.AvgTrueRange(period)]
         )#.rolling(period).min()
-        _df[Col.Ind.Band.SuperTrend.Dn(period, _multi_dn)] = (
+        _df[Col.Ind.SuperTrend.Dn(period, _multi_dn)] = (
             0.5 * (_df[Col.High.cur] + _df[Col.Low.cur])
-            - _multi_dn * _df[Col.Ind.Band.AvgTrueRange(period)]
+            - _multi_dn * _df[Col.Ind.AvgTrueRange(period)]
         )#.rolling(period).max()
 
         supertrend, modes = self._adjust_base_boundary_for_supertrend(_df)
 
         # # TrendUp is the resistence
         _df[self._col_supertrend_name] = supertrend
-        _df[Col.Ind.Band.SuperTrend.Mode.name] = modes
+        _df[Col.Ind.SuperTrend.Mode.name] = modes
 
         _df = _df[[
             self.tick_col,
-            Col.Ind.Band.TrueRange.name,
-            Col.Ind.Band.AvgTrueRange(period),
-            Col.Ind.Band.SuperTrend.Up(period, _multi_up),
-            Col.Ind.Band.SuperTrend.Dn(period, _multi_dn),
+            Col.Ind.TrueRange.name,
+            Col.Ind.AvgTrueRange(period),
+            Col.Ind.SuperTrend.Up(period, _multi_up),
+            Col.Ind.SuperTrend.Dn(period, _multi_dn),
             self._col_supertrend_name,
-            Col.Ind.Band.SuperTrend.Mode.name
+            Col.Ind.SuperTrend.Mode.name
         ]]
 
         self._add_result_safely(_df)
@@ -519,8 +519,8 @@ class IndSupertrend(_BaseIndicator):
         _multi_dn = self._multi_dn
 
         closes = _df[Col.Close.cur].to_list()
-        base_ups = _df[Col.Ind.Band.SuperTrend.Up(period, _multi_up)].to_list()
-        base_dns = _df[Col.Ind.Band.SuperTrend.Dn(period, _multi_dn)].to_list()
+        base_ups = _df[Col.Ind.SuperTrend.Up(period, _multi_up)].to_list()
+        base_dns = _df[Col.Ind.SuperTrend.Dn(period, _multi_dn)].to_list()
 
         modes = [np.nan] * len(_df)
         supertrend = np.full((len(_df),), np.nan)
@@ -581,17 +581,17 @@ class IndSupertrend(_BaseIndicator):
 
 
         _df_up = self.df.copy()
-        _df_up.loc[_df_up[Col.Ind.Band.SuperTrend.Mode.name] == 1, self._col_supertrend_name] = pd.NA
+        _df_up.loc[_df_up[Col.Ind.SuperTrend.Mode.name] == 1, self._col_supertrend_name] = pd.NA
         ups = _df_up[self._col_supertrend_name].values
         
         _df_dn = self.df.copy()
-        _df_dn.loc[_df_dn[Col.Ind.Band.SuperTrend.Mode.name] == 0, self._col_supertrend_name] = pd.NA
+        _df_dn.loc[_df_dn[Col.Ind.SuperTrend.Mode.name] == 0, self._col_supertrend_name] = pd.NA
         dns = _df_dn[self._col_supertrend_name].values
 
         s2r_markers = np.full((len(dns)), np.nan)
         r2s_markers = np.full((len(dns)), np.nan)
 
-        modes = self.df[Col.Ind.Band.SuperTrend.Mode.name].values
+        modes = self.df[Col.Ind.SuperTrend.Mode.name].values
         # Locate the transition point, add markes and fill in the gap
         for idx, mode in enumerate(modes[:-1]):
             if mode not in {0, 1}: continue  # first n points are NA
@@ -609,8 +609,8 @@ class IndSupertrend(_BaseIndicator):
 
         if with_raw_atr_band:
             kwargs['fill_between'] = {
-                'y1': self.df[Col.Ind.Band.SuperTrend.Up(period, _multi_up)].values,
-                'y2': self.df[Col.Ind.Band.SuperTrend.Dn(period, _multi_dn)].values,
+                'y1': self.df[Col.Ind.SuperTrend.Up(period, _multi_up)].values,
+                'y2': self.df[Col.Ind.SuperTrend.Dn(period, _multi_dn)].values,
                 'alpha': 0.3,
                 'color': 'dimgray'
             }
@@ -622,4 +622,96 @@ class IndSupertrend(_BaseIndicator):
             mpf.make_addplot(r2s_markers, type='scatter', markersize=200, color='lime', marker='^'),
         ]
 
+
+class IndAroon(_BaseIndicator):
+    """The Aroon indicator is a technical analysis tool used to identify
+    trends and potential reversal points in the price movements of a
+    security. It was developed by Tushar Chande in 1995. The term "Aroon" is
+    derived from the Sanskrit word meaning "dawn's early light," symbolizing
+    the beginning of a new trend.
     
+    Aroon Up measures the number of periods since the highest price over a
+    given period, expressed as a percentage of the total period.
+    
+    Aroon Up = (𝑛 − Periods since highest high) / 𝑛 × 100
+    Aroon_Dn is defined similarly
+    """
+
+    def __init__(self,
+                 df: pd.DataFrame,
+                 period: int = 14,
+                 tick_col: str = Col.Date.name):
+
+        self.period = period
+        super().__init__(df, tick_col)
+
+    def _calc(self) -> None:
+
+        _df = self.df[[self.tick_col]].copy()
+
+        highs = self.df[Col.High.name].values
+        lows = self.df[Col.Low.name].values
+
+        aroon_ups = np.full((len(_df),), np.nan)
+        aroon_dns = np.full((len(_df),), np.nan)
+
+        min_heap = []
+        max_heap = []
+
+        for i in range(self.period):
+            heapq.heappush(min_heap, (lows[i], i))
+            heapq.heappush(max_heap, (-highs[i], i))
+
+        for i in range(self.period, len(_df)):
+
+            # Remove index outside the window
+            self.__clean_heap(min_heap, i - self.period)
+            self.__clean_heap(max_heap, i - self.period)
+
+            min_idx = min_heap[0][1]
+            max_idx = max_heap[0][1]
+
+            aroon_ups[i] = (self.period - (i - max_idx)) / (self.period) * 100
+            aroon_dns[i] = (self.period - (i - min_idx)) / (self.period) * 100
+
+            heapq.heappush(min_heap, (lows[i], i))
+            heapq.heappush(max_heap, (-highs[i], i))
+        
+        _df[Col.Ind.Aroon.Up(self.period)] = aroon_ups
+        _df[Col.Ind.Aroon.Dn(self.period)] = aroon_dns
+
+        self._add_result_safely(_df)
+
+        return
+
+    @staticmethod
+    def __clean_heap(heap, min_index):
+
+        while heap and heap[0][1] < min_index:
+            heapq.heappop(heap)
+        
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+
+        # TODO - need to add color following style
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.Aroon.Up(self.period)],
+                type='line', panel=plotter_args['new_panel_num'],
+                color='lime'
+            ),
+            mpf.make_addplot(
+                self.df[Col.Ind.Aroon.Dn(self.period)],
+                type='line', panel=plotter_args['new_panel_num'],
+                color='red'
+            ),
+            mpf.make_addplot(
+                (self.df[Col.Ind.Aroon.Up(self.period)] - self.df[Col.Ind.Aroon.Dn(self.period)]).abs(),
+                type='line', panel=plotter_args['new_panel_num'],
+                color='k', linestyle='--'
+            )
+        ]
+        
