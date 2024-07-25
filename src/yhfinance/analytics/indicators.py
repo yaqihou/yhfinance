@@ -14,6 +14,15 @@ from .const import Col, ColIntra, ColName, _T_RSI
 from .ohlc_processor import OHLCInterProcessor
 
 
+__all__ = ['IndMACD',
+           'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
+           'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand',
+           'IndSupertrend'
+           ]
+
+# TODO - add plotter configs into each class so that could be used outside
+
+
 class _BaseIndicator(_OHLCBase, abc.ABC):
 
     # TODO - need to implement for each indicator
@@ -53,7 +62,7 @@ class _BaseIndicator(_OHLCBase, abc.ABC):
         for col in df.columns:
             if col == self.tick_col:  continue
             if col in self._df.columns:
-                print(f'Warning: found existing RSI result col {col}, dropping it')
+                # print(f'Warning: found existing RSI result col {col}, dropping it')
                 drop_cols.append(col)
         
         if drop_cols:
@@ -351,9 +360,68 @@ class IndAvgTrueRange(_BaseIndicator):
 
         self._add_result_safely(_df)
 
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
-        raise NotImplementedError()
+        _ = plotter_args
+        _ = args
+        _ = kwargs
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.Band.AvgTrueRange(self.period)],
+                type='line',
+                panel=plotter_args['new_panel_num'],
+                label=Col.Ind.Band.AvgTrueRange(self.period)
+            )
+        ]
+
+
+class IndATRBand(IndAvgTrueRange):
+    """Just a wrapped to create a pnael of atr band
+    """
+
+    def __init__(self,
+                 df: pd.DataFrame,
+                 tick_col: str = Col.Date.name,
+                 period: int = 5,
+                 multiplier: int = 3,
+                 shift_ref_col: ColName = Col.Close,
+                 keep_tr_result: bool = True):
+
+        self.multiplier: int = multiplier
+        self.shift_ref_col: ColName = shift_ref_col
+
+        super().__init__(df, tick_col, period, keep_tr_result)
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+
+        _df = self.df.copy()
+        _df['Up'] = (
+            _df[self.shift_ref_col.name]
+            + self.multiplier * _df[Col.Ind.Band.AvgTrueRange(self.period)]
+        )
+        _df['Dn'] = (
+            _df[self.shift_ref_col.name]
+            - self.multiplier * _df[Col.Ind.Band.AvgTrueRange(self.period)]
+        )
+
+        return [
+            mpf.make_addplot(
+                _df['Up'],
+                fill_between = {
+                    'y1': _df['Up'].values,
+                    'y2': _df['Dn'].values,
+                    'alpha': 0.3,
+                    'color': 'dimgray',
+                    label=f'{Col.Ind.Band.AvgTrueRange(self.period)} Band'
+                },
+                alpha=0.,
+                panel=plotter_args['main_panel'],
+            )
+        ]
 
 
 class IndSupertrend(_BaseIndicator):
@@ -524,13 +592,11 @@ class IndSupertrend(_BaseIndicator):
         r2s_markers = np.full((len(dns)), np.nan)
 
         modes = self.df[Col.Ind.Band.SuperTrend.Mode.name].values
-        print(modes)
         # Locate the transition point, add markes and fill in the gap
         for idx, mode in enumerate(modes[:-1]):
             if mode not in {0, 1}: continue  # first n points are NA
 
             if mode != modes[idx+1]:
-                print(idx, mode, modes[idx+1])
                 # support to resistence: fall breach the support, red line, red downward arrow above
                 if mode == 1: 
                     ups[idx] = dns[idx]
@@ -542,7 +608,7 @@ class IndSupertrend(_BaseIndicator):
                     r2s_markers[idx+1] = dns[idx+1] * 0.95
 
         if with_raw_atr_band:
-            fill_between = {
+            kwargs['fill_between'] = {
                 'y1': self.df[Col.Ind.Band.SuperTrend.Up(period, _multi_up)].values,
                 'y2': self.df[Col.Ind.Band.SuperTrend.Dn(period, _multi_dn)].values,
                 'alpha': 0.3,
@@ -550,7 +616,7 @@ class IndSupertrend(_BaseIndicator):
             }
 
         return [
-            mpf.make_addplot(ups, fill_between=fill_between, **kwargs_up),
+            mpf.make_addplot(ups, **kwargs_up),
             mpf.make_addplot(dns, **kwargs_dn),
             mpf.make_addplot(s2r_markers, type='scatter', markersize=200, color='r', marker='v'),
             mpf.make_addplot(r2s_markers, type='scatter', markersize=200, color='lime', marker='^'),
