@@ -110,11 +110,22 @@ _AROON = _T_AROON(
     ColName('AroonDn', callback=indicator_callback),
     ColName('AroonOscillator', callback=indicator_callback),
 )
+
+_T_STARC = namedtuple('SuperTrend', ['SMA', 'ATR', 'Up', 'Dn', 'STARC'])
+_STARC = _T_STARC(
+    ColName('SMA', callback=indicator_callback),
+    ColName('ATR', callback=indicator_callback),
+    ColName('STARCUp', callback=indicator_callback),
+    ColName('STARCDn', callback=indicator_callback),
+    ColName('STARC', callback=indicator_callback),
+)
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
 
     # TODO - add function to list by categories
+
+    SMA = ColName('SMA', callback=indicator_callback)
 
     MACD = _MACD
     RSIWilder = _RSIWilder
@@ -126,6 +137,8 @@ class ColInd:
     TrueRange = ColName('TR')
     AvgTrueRange = ColName('ATR', callback=indicator_callback)
     SuperTrend = _SUPERTREND
+    STARC = _STARC
+    
 
 class ColInter:
     # Inter-tick features

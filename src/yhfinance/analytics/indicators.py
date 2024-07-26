@@ -14,14 +14,17 @@ from .const import Col, ColIntra, ColName, _T_RSI
 from .ohlc_processor import OHLCInterProcessor
 
 
-__all__ = ['IndMACD',
-           'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
-           'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand',
-           'IndSupertrend',
-           'IndAroon'
+__all__ = [
+    'IndSMA',
+    'IndMACD',
+    'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
+    'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
+    'IndSupertrend',
+    'IndAroon'
            ]
 
 # TODO - add plotter configs into each class so that could be used outside
+# TODO - add related indicators as class property
 
 
 class _BaseIndicator(_OHLCBase, abc.ABC):
@@ -32,11 +35,15 @@ class _BaseIndicator(_OHLCBase, abc.ABC):
     def __init__(self, df: pd.DataFrame, tick_col: str = Col.Date.name):
         super().__init__(df, tick_col)
 
-        self._calc()
+        self.calc()
+
+    def calc(self):
+        _df = self._calc()
+        self._add_result_safely(_df)
 
     @abc.abstractmethod
-    def _calc(self) -> None:
-        """Implement the calculation and populate the results to self._df"""
+    def _calc(self) -> pd.DataFrame:
+        """Implement the calculation and return the results wanted to add to self._df"""
 
     @abc.abstractmethod
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
@@ -97,6 +104,49 @@ class _RollingMixin:
         self.period = period
         super().__init__(*args, **kwargs)
 
+class _PricePickMixin:
+
+    def __init__(self,
+                 *args,
+                 price_col : ColName = Col.Close,
+                 **kwargs
+                 ):
+
+        self.price_col = price_col
+        super().__init__(*args, **kwargs)
+
+
+# -----------------------------------
+# Implementation starts below
+
+class IndSMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+
+    def __init__(
+            self,
+            df       : pd.DataFrame,
+            tick_col : str = Col.Date.name,
+            period   : int = 7,
+            price_col : ColName = Col.Close,  # if None, the same as multiplier
+    ):
+
+        super().__init__(df, tick_col, period=period, price_col=price_col)
+
+    def _calc(self) -> None:
+
+        _df = self._df[[self.tick_col]].copy()
+        _df[Col.Ind.SMA(self.period)] = self.df[self.price_col.name].rolling(self.period).mean()
+
+        return _df
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.SMA(self.period)],
+                type='line', panel=plotter_args['main_panel'],
+                label=Col.Ind.SMA(self.period)
+            )
+        ]
+
 
 
 class IndMACD(_BaseIndicator):
@@ -118,7 +168,7 @@ class IndMACD(_BaseIndicator):
 
         super().__init__(df, tick_col)
 
-    def _calc(self):
+    def _calc(self) -> pd.DataFrame:
         
         ewm_short = self._df[self.price_col.name].ewm(
             span=self.short_term_window, adjust=False).mean()
@@ -139,7 +189,7 @@ class IndMACD(_BaseIndicator):
         df[Col.Ind.MACD.Signal(
             self.short_term_window, self.long_term_window, self.signal_window)] = signal
 
-        self._add_result_safely(df)
+        return df
 
     # TODO - could add a argument to control this in init
     @property
@@ -202,6 +252,8 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
             period    : int                 = 14,
             threshold : tuple[float, float] = (30, 70)
     ):
+        self.ewm_ups: pd.DataFrame
+        self.ewm_dns: pd.DataFrame
         self.threshold = threshold
         super().__init__(df, tick_col, period=period)
 
@@ -209,7 +261,7 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
     def need_new_panel_num(self) -> bool:
         return True
 
-    def _get_gl_for_rsi(self):
+    def _get_gl_for_rsi(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
         _df = OHLCInterProcessor(self.df, tick_offset=-1).add_close_return().get_result()
         _df = _df[[self.tick_col, Col.Inter.CloseReturn.gl]].copy()
@@ -229,16 +281,14 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
     def rsi_type(self) -> str:
         return self.rsi_col.RSI.name
 
-    def _assign_rsi_result(self, df):
+    def _assign_rsi_result(self, df) -> pd.DataFrame:
         
         df[self.rsi_col.AvgGain(self.period)] = self.ewm_ups
         df[self.rsi_col.AvgLoss(self.period)] = self.ewm_dns
         df[self.rsi_col.RS(self.period)] = self.ewm_ups / self.ewm_dns
         df[self.rsi_col.RSI(self.period)] = 100 - (100 / (1 + self.ewm_ups / self.ewm_dns))
 
-        self._add_result_safely(df)
-
-        return
+        return df
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
 
@@ -274,7 +324,7 @@ class IndWilderRSI(_IndRSI):
     def rsi_col(self) -> _T_RSI:
         return Col.Ind.RSIWilder
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
         _df, ups, dns = self._get_gl_for_rsi()
         n = self.period
 
@@ -287,7 +337,7 @@ class IndWilderRSI(_IndRSI):
         self.ewm_ups = ups.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
         self.ewm_dns = dns.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
 
-        self._assign_rsi_result(_df)
+        return self._assign_rsi_result(_df)
 
 
 class IndEmaRSI(_IndRSI):
@@ -305,7 +355,7 @@ class IndEmaRSI(_IndRSI):
         self.ewm_ups = ups.ewm(alpha=alpha, adjust=False).mean()
         self.ewm_dns = dns.ewm(alpha=alpha, adjust=False).mean()
 
-        self._assign_rsi_result(_df)
+        return self._assign_rsi_result(_df)
 
 
 class IndCutlerRSI(_IndRSI):
@@ -321,7 +371,7 @@ class IndCutlerRSI(_IndRSI):
         self.ewm_ups = ups.rolling(self.period).mean()
         self.ewm_dns = dns.rolling(self.period).mean()
 
-        self._assign_rsi_result(_df)
+        return self._assign_rsi_result(_df)
 
 
 class IndTrueRange(_RollingMixin, _BaseIndicator):
@@ -335,7 +385,7 @@ class IndTrueRange(_RollingMixin, _BaseIndicator):
     
         super().__init__(df, tick_col, period=period)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
         _df = OHLCInterProcessor(self.df, tick_offset=-1)._df_offset
 
         # TR = max[(H-L), abs(H-Cp), abs(L-Cp)]
@@ -345,7 +395,7 @@ class IndTrueRange(_RollingMixin, _BaseIndicator):
             (_df[Col.Low.cur] - _df[Col.Close.sft]).abs()
             ], axis=1).max(axis=1)
 
-        self._add_result_safely(_df)
+        return _df
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         raise NotImplementedError()
@@ -364,7 +414,7 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
         self.keep_tr_result = keep_tr_result
         super().__init__(df, tick_col, period=period)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
         # ATR_curr = ATR_prev * (n-1) / n + TR_curr * (1/n)
         # i.e. a EWM with alpha = 1/n
         # initial condition is ATR_0 = mean(sum(TR_n))
@@ -383,7 +433,7 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
         if not self.keep_tr_result:
             _df = _df[[self.tick_col, Col.Ind.AvgTrueRange(period)]]
 
-        self._add_result_safely(_df)
+        return _df
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -422,24 +472,29 @@ class IndATRBand(_BandMixin, IndAvgTrueRange):
                          period=period, multiplier=multiplier,
                          keep_tr_result=keep_tr_result)
 
-    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+    def _calc(self) -> pd.DataFrame:
+        _df = super()._calc()
 
-        _df = self.df.copy()
-        _df['Up'] = (
+        _df['PlotUp'] = (
             _df[self.shift_ref_col.name]
             + self.multiplier * _df[Col.Ind.AvgTrueRange(self.period)]
         )
-        _df['Dn'] = (
+        _df['PlotDn'] = (
             _df[self.shift_ref_col.name]
             - self.multiplier * _df[Col.Ind.AvgTrueRange(self.period)]
         )
 
+        return _df
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+
+
         return [
             mpf.make_addplot(
-                _df['Up'],
+                self.df['PlotUp'],
                 fill_between = {
-                    'y1': _df['Up'].values,
-                    'y2': _df['Dn'].values,
+                    'y1': self.df['PlotUp'].values,
+                    'y2': self.df['PlotDn'].values,
                     'alpha': 0.3,
                     'color': 'dimgray',
                 },
@@ -492,7 +547,7 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
         else:
             return Col.Ind.SuperTrend.Final(self.period, self._multi_up, self._multi_dn)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
         period = self.period
         _multi_up = self._multi_up
         _multi_dn = self._multi_dn
@@ -527,7 +582,7 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
             Col.Ind.SuperTrend.Mode.name
         ]]
 
-        self._add_result_safely(_df)
+        return _df
 
     def _adjust_base_boundary_for_supertrend(self, _df):
         """The upper line is the median price plus a multiple of Average
@@ -647,6 +702,88 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
         ]
 
 
+class IndStarcBand(_BandMixin, _BaseIndicator):
+    """Commonly called STARC Bands, Stoller Average Range Channel Bands
+    developed by Manning Stoller, are two bands that are applied above and
+    below a simple moving average (SMA) of an asset's price. The upper band
+    is created by adding the value of the average true range (ATR), or a
+    multiple of it. The lower band is created by subtracting the value of
+    the ATR from the SMA.
+    
+    The channel created by the bands can provide traders with ideas on when
+    to buy or sell. During an overall uptrend, buying near the lower band
+    and selling near the top band is favorable, for example. STARC bands
+    can provide insight for both ranging and trending markets
+    """
+    
+
+    def __init__(
+            self,
+            df            : pd.DataFrame,
+            tick_col      : str           = Col.Date.name,
+            period_sma    : int           = 5,
+            period_atr    : int           = 15,
+            multiplier    : int           = 3,
+            multiplier_dn : Optional[int] = None  # if None, the same as multiplier
+    ):
+        """
+        period: for SMA, usually between 5 and 10
+        multiplier: for ATR scale, commonly take to be 2
+        """
+        self.period_sma = period_sma
+        self.period_atr = period_atr
+        super().__init__(df, tick_col,
+                         multiplier=multiplier, multiplier_dn=multiplier_dn)
+
+    def _calc(self) -> pd.DataFrame:
+
+        self._sma = IndSMA(self.df, self.tick_col, self.period_sma)
+        _sma_val = self._sma.df[Col.Ind.SMA(self.period_sma)].values
+
+        self._atr = IndAvgTrueRange(self.df, self.tick_col, self.period_atr, keep_tr_result=False)
+        _atr_val = self._atr.df[Col.Ind.AvgTrueRange(self.period_atr)].values
+
+
+        _df = self._df[[self.tick_col]].copy()
+        _df[Col.Ind.STARC.SMA(self.period_sma)] = _sma_val
+        _df[Col.Ind.STARC.ATR(self.period_atr)] = _atr_val
+        _df[Col.Ind.STARC.Up(self.period_sma, self.period_atr)] = _sma_val + self._multi_up * _atr_val
+        _df[Col.Ind.STARC.Dn(self.period_sma, self.period_atr)] = _sma_val - self._multi_dn * _atr_val
+
+        return _df
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     with_sma: bool = False,
+                     fill_band: bool = True,
+                     **kwargs) -> list[dict]:
+        kwargs = {
+            'alpha': 0.,
+            'label': Col.Ind.STARC.STARC(self.period_sma, self.period_atr),
+            'secondary_y': False
+        }
+
+        if fill_band:
+            kwargs['fill_between'] = {
+                'y1': self.df[Col.Ind.STARC.Up(self.period_sma, self.period_atr)].values,
+                'y2': self.df[Col.Ind.STARC.Dn(self.period_sma, self.period_atr)].values,
+                'alpha': 0.3,
+                'color': 'dimgray',
+            }
+        
+        ret = [mpf.make_addplot(self.df[Col.Close.name], **kwargs)]
+
+        if with_sma:
+            # Ensure we have the same size
+            self._sma._df = self._sma._df.merge(self.df[[self.tick_col]], how='inner', on=self.tick_col)
+            ret += self._sma.make_addplot(plotter_args)
+        
+        return ret
+
+
+
+
+
 class IndAroon(_RollingMixin, _BaseIndicator):
     """The Aroon indicator is a technical analysis tool used to identify
     trends and potential reversal points in the price movements of a
@@ -668,7 +805,7 @@ class IndAroon(_RollingMixin, _BaseIndicator):
 
         super().__init__(df, tick_col, period=period)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
 
         _df = self.df[[self.tick_col]].copy()
 
@@ -703,9 +840,7 @@ class IndAroon(_RollingMixin, _BaseIndicator):
         _df[Col.Ind.Aroon.Up(self.period)] = aroon_ups
         _df[Col.Ind.Aroon.Dn(self.period)] = aroon_dns
 
-        self._add_result_safely(_df)
-
-        return
+        return _df
 
     @staticmethod
     def __clean_heap(heap, min_index):
