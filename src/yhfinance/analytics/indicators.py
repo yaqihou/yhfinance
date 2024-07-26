@@ -17,7 +17,8 @@ from .ohlc_processor import OHLCInterProcessor
 __all__ = ['IndMACD',
            'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
            'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand',
-           'IndSupertrend'
+           'IndSupertrend',
+           'IndAroon'
            ]
 
 # TODO - add plotter configs into each class so that could be used outside
@@ -68,6 +69,34 @@ class _BaseIndicator(_OHLCBase, abc.ABC):
         if drop_cols:
             self._df = self._df.drop(columns=drop_cols)
         self._df = self._df.merge(df, how='left', on=self.tick_col)
+
+
+class _BandMixin:
+
+    def __init__(self,
+                 *args,
+                 multiplier    : int           = 3,
+                 multiplier_dn : Optional[int] = None,  # if None, the same as multiplier
+                 **kwargs
+                 ):
+
+        self.multiplier = multiplier
+        self._multi_up = multiplier
+        self._multi_dn = multiplier_dn or self._multi_up
+
+        super().__init__(*args, **kwargs)
+
+class _RollingMixin:
+
+    def __init__(self,
+                 *args,
+                 period : int = 7,  # if None, the same as multiplier
+                 **kwargs
+                 ):
+
+        self.period = period
+        super().__init__(*args, **kwargs)
+
 
 
 class IndMACD(_BaseIndicator):
@@ -164,18 +193,17 @@ class IndMACD(_BaseIndicator):
         ]
 
 
-class _IndRSI(_BaseIndicator):
+class _IndRSI(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
             df        : pd.DataFrame,
             tick_col  : str                 = Col.Date.name,
-            n         : int                 = 14,
+            period    : int                 = 14,
             threshold : tuple[float, float] = (30, 70)
     ):
-        self.n = n
         self.threshold = threshold
-        super().__init__(df, tick_col)
+        super().__init__(df, tick_col, period=period)
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -203,10 +231,10 @@ class _IndRSI(_BaseIndicator):
 
     def _assign_rsi_result(self, df):
         
-        df[self.rsi_col.AvgGain(self.n)] = self.ewm_ups
-        df[self.rsi_col.AvgLoss(self.n)] = self.ewm_dns
-        df[self.rsi_col.RS(self.n)] = self.ewm_ups / self.ewm_dns
-        df[self.rsi_col.RSI(self.n)] = 100 - (100 / (1 + self.ewm_ups / self.ewm_dns))
+        df[self.rsi_col.AvgGain(self.period)] = self.ewm_ups
+        df[self.rsi_col.AvgLoss(self.period)] = self.ewm_dns
+        df[self.rsi_col.RS(self.period)] = self.ewm_ups / self.ewm_dns
+        df[self.rsi_col.RSI(self.period)] = 100 - (100 / (1 + self.ewm_ups / self.ewm_dns))
 
         self._add_result_safely(df)
 
@@ -222,9 +250,9 @@ class _IndRSI(_BaseIndicator):
         })
         
         return [
-            mpf.make_addplot(self.df[self.rsi_col.RSI(self.n)],
+            mpf.make_addplot(self.df[self.rsi_col.RSI(self.period)],
                              type='line', color='r',
-                             label=self.rsi_col.RSI(self.n),
+                             label=self.rsi_col.RSI(self.period),
                              panel=new_panel_num, secondary_y=False),
             #
             mpf.make_addplot(_df_threshold['upper'], type='line', color='k',
@@ -248,7 +276,7 @@ class IndWilderRSI(_IndRSI):
 
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
-        n = self.n
+        n = self.period
 
         ups.iloc[n] = ups.iloc[:n].mean()
         ups.iloc[:n] = pd.NA
@@ -273,7 +301,7 @@ class IndEmaRSI(_IndRSI):
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
 
-        alpha = 1 / self.n
+        alpha = 1 / self.period
         self.ewm_ups = ups.ewm(alpha=alpha, adjust=False).mean()
         self.ewm_dns = dns.ewm(alpha=alpha, adjust=False).mean()
 
@@ -290,13 +318,13 @@ class IndCutlerRSI(_IndRSI):
     def _calc(self) -> None:
         _df, ups, dns = self._get_gl_for_rsi()
 
-        self.ewm_ups = ups.rolling(self.n).mean()
-        self.ewm_dns = dns.rolling(self.n).mean()
+        self.ewm_ups = ups.rolling(self.period).mean()
+        self.ewm_dns = dns.rolling(self.period).mean()
 
         self._assign_rsi_result(_df)
 
 
-class IndTrueRange(_BaseIndicator):
+class IndTrueRange(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
@@ -305,8 +333,7 @@ class IndTrueRange(_BaseIndicator):
             period   : int = 14
     ):
     
-        self.period = period
-        super().__init__(df, tick_col)
+        super().__init__(df, tick_col, period=period)
 
     def _calc(self) -> None:
         _df = OHLCInterProcessor(self.df, tick_offset=-1)._df_offset
@@ -324,7 +351,7 @@ class IndTrueRange(_BaseIndicator):
         raise NotImplementedError()
     
 
-class IndAvgTrueRange(_BaseIndicator):
+class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
@@ -334,10 +361,8 @@ class IndAvgTrueRange(_BaseIndicator):
             keep_tr_result: bool = True
     ):
     
-        self.period = period
         self.keep_tr_result = keep_tr_result
-
-        super().__init__(df, tick_col)
+        super().__init__(df, tick_col, period=period)
 
     def _calc(self) -> None:
         # ATR_curr = ATR_prev * (n-1) / n + TR_curr * (1/n)
@@ -379,7 +404,7 @@ class IndAvgTrueRange(_BaseIndicator):
         ]
 
 
-class IndATRBand(IndAvgTrueRange):
+class IndATRBand(_BandMixin, IndAvgTrueRange):
     """Just a wrapped to create a pnael of atr band
     """
 
@@ -391,10 +416,11 @@ class IndATRBand(IndAvgTrueRange):
                  shift_ref_col: ColName = Col.Close,
                  keep_tr_result: bool = True):
 
-        self.multiplier: int = multiplier
         self.shift_ref_col: ColName = shift_ref_col
 
-        super().__init__(df, tick_col, period, keep_tr_result)
+        super().__init__(df, tick_col,
+                         period=period, multiplier=multiplier,
+                         keep_tr_result=keep_tr_result)
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
 
@@ -424,7 +450,7 @@ class IndATRBand(IndAvgTrueRange):
         ]
 
 
-class IndSupertrend(_BaseIndicator):
+class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
     """Add calculations related to Supertrend up/dn and the actual to
     display
 
@@ -455,11 +481,9 @@ class IndSupertrend(_BaseIndicator):
             multiplier    : int           = 3,
             multiplier_dn : Optional[int] = None  # if None, the same as multiplier
     ):
-        self.period         = period
-        self._multi_up      = multiplier
-        self._multi_dn      = multiplier_dn or multiplier
-
-        super().__init__(df, tick_col)
+        super().__init__(df, tick_col,
+                         period=period,
+                         multiplier=multiplier, multiplier_dn=multiplier_dn)
 
     @property
     def _col_supertrend_name(self) -> str:
@@ -623,7 +647,7 @@ class IndSupertrend(_BaseIndicator):
         ]
 
 
-class IndAroon(_BaseIndicator):
+class IndAroon(_RollingMixin, _BaseIndicator):
     """The Aroon indicator is a technical analysis tool used to identify
     trends and potential reversal points in the price movements of a
     security. It was developed by Tushar Chande in 1995. The term "Aroon" is
@@ -639,11 +663,10 @@ class IndAroon(_BaseIndicator):
 
     def __init__(self,
                  df: pd.DataFrame,
-                 period: int = 14,
-                 tick_col: str = Col.Date.name):
+                 tick_col: str = Col.Date.name,
+                 period: int = 14):
 
-        self.period = period
-        super().__init__(df, tick_col)
+        super().__init__(df, tick_col, period=period)
 
     def _calc(self) -> None:
 
@@ -701,17 +724,17 @@ class IndAroon(_BaseIndicator):
             mpf.make_addplot(
                 self.df[Col.Ind.Aroon.Up(self.period)],
                 type='line', panel=plotter_args['new_panel_num'],
-                color='lime'
+                color='lime', secondary_y = False
             ),
             mpf.make_addplot(
                 self.df[Col.Ind.Aroon.Dn(self.period)],
                 type='line', panel=plotter_args['new_panel_num'],
-                color='red'
+                color='red', secondary_y = False
             ),
             mpf.make_addplot(
-                (self.df[Col.Ind.Aroon.Up(self.period)] - self.df[Col.Ind.Aroon.Dn(self.period)]).abs(),
+                (self.df[Col.Ind.Aroon.Up(self.period)] - self.df[Col.Ind.Aroon.Dn(self.period)]),
                 type='line', panel=plotter_args['new_panel_num'],
-                color='k', linestyle='--'
+                color='k', linestyle='--', secondary_y = True
             )
         ]
         
