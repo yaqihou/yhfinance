@@ -16,8 +16,8 @@ from yhfinance.analytics.const import ColName
 
 from ._base import _OHLCBase
 from .const import Col, ColName
-from .ohlc_processor import OHLCFixedWindowProcessor
 from .plotter import OHLCMpfPlotter, OHLCMultiFigurePlotter
+from .dataslicer import DataSlicer
 
 
 @dataclass
@@ -241,16 +241,16 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
             self,
             df: pd.DataFrame,
             tick_col: str = Col.Date.name,
-            group_cols: list[OHLCFixedWindowProcessor._T_CAL_INFO_COLS] = ['Year', 'Month']
+            group_cols: list[DataSlicer._T_CAL_INFO_COLS] = ['Year', 'Month']
     ):
         super().__init__(df, tick_col)
-        self.processor = OHLCFixedWindowProcessor(df, tick_col=tick_col)
+        self.slicer = DataSlicer(df, tick_col=tick_col)
 
         self.group_cols = group_cols
 
         # Prepare the summary table
         # _summary_dict = {k: [] for k in group_cols}
-        self._uniq_group_key = sorted(self.df_processed[group_cols].apply(tuple, axis=1).unique())
+        self._uniq_group_key = sorted(self._df_calendar[group_cols].apply(tuple, axis=1).unique())
         # for x in self._uniq_summary_key:
         #     for k, v in zip(group_cols, x):
         #         _summary_dict[k].append(v)
@@ -261,33 +261,13 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
         #     for key in self._uniq_summary_key
         # }
 
-    def plot_details(self, figsize=(30, 24)):
-
-        fig, axes = plt.subplots(len(self.processor.years), figsize=figsize)
-
-        # for idx_row, year in enumerate(year_list):
-        #     for idx_month, month in enumerate(month_list):
-
-        #         ax = axes[idx_month][idx_year]
-        #         sns.lineplot(self.df_slice_dict[], x='Date', y='Close', ax=ax)
-        #         ax.set_xticks([])
-        #         ax.set_xlabel("")
-        #         ax.set_ylabel("")
-
-        #         # _ax = ax.twinx()
-        #         # sns.lineplot(_df, x='Date', y='52 Wk High', ax=ax, color='r')
-        #         # sns.lineplot(_df, x='Date', y='52 Wk Low', ax=ax, color='r', ls='--')
-        #         # _ax.set_xticks([])
-        #         # _ax.set_xlabel("")
-        #         # _ax.set_ylabel("")
-
-        #         ax.set_title(f"{year}-{month:02d}")
-        plt.tight_layout()
-        plt.show()
+    @property
+    def df_with_cal_info(self):
+        return self.slicer.df_with_calendar_info
 
     @property
-    def df_processed(self):
-        return self.processor.df
+    def _df_calendar(self):
+        return self.slicer._df_calendar
 
     @property
     def df_grouped(self) -> pd.DataFrame:
@@ -305,7 +285,7 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
     ):
 
         _data_dict = {'_key': []}
-        for _key, _df_slice in self.df_processed.groupby(self.group_cols):
+        for _key, _df_slice in self.df_with_cal_info.groupby(self.group_cols):
             _df_slice = _df_slice.reset_index(drop=True)
             _data_dict['_key'].append(_key)
 
@@ -341,15 +321,15 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
             ncols = 1
             subfig_idx_map = {_key: idx for idx, _key in enumerate(self._uniq_group_key)}
         else:
-            _unique_key_count = [len(self.df_processed[col].unique()) for col in self.group_cols]
+            _unique_key_count = [len(self._df_calendar[col].unique()) for col in self.group_cols]
             nrows = int(np.prod(np.array(_unique_key_count[:-1])))
             ncols = _unique_key_count[-1]
 
             assert len(self._uniq_group_key) <= nrows * ncols
 
             # Get the index mapping 
-            _key_min = [self.df_processed[col].min() for col in self.group_cols]
-            _key_max = [self.df_processed[col].max() for col in self.group_cols]
+            _key_min = [self._df_calendar[col].min() for col in self.group_cols]
+            _key_max = [self._df_calendar[col].max() for col in self.group_cols]
 
             _grid = np.array(list(map(
                 np.ndarray.flatten,
@@ -397,12 +377,13 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
                 tick_col=self.tick_col,
                 ncols=ncols,
                 nrows=nrows,
+                volume=volume, 
                 tight_layout=tight_layout) as plotter:
 
             for _key in tqdm(self._uniq_group_key, desc='Generating plots'):
 
                 subfig_idx = subfig_idx_map[_key]
-                _df = self.processor.get_slice(
+                _df = self.slicer.get_slice(
                     **{x.lower(): y for x, y in zip(self.group_cols, _key)}
                 ).set_index(self.tick_col)
                 # Pretty ax_title
@@ -410,7 +391,7 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
 
                 plotter.select_subfig(subfig_idx)
                 plotter.set_subfig_suptitle(_title)
-                plotter.plot_basic(_df, type=type, volume=volume, mav=mav, **kwargs)
+                plotter.plot_basic(_df, type=type, mav=mav, **kwargs)
 
     def plot_slice(
             self,
@@ -418,11 +399,16 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
             month: Optional[int] = None,
             qtr: Optional[int] = None,
             weekday: Optional[int] = None,
-            weeknum: Optional[int] = None):
-        _df = self.processor.get_slice(year=year, month=month, qtr=qtr, weekday=weekday, weeknum=weeknum)
+            weeknum: Optional[int] = None
+    ):
+        _df = self.slicer.get_slice(
+            year=year, month=month, qtr=qtr, weekday=weekday, weeknum=weeknum)
 
-        with OHLCMpfPlotter(tick_col=self.tick_col) as plotter:
-            plotter.plot_basic(_df, volume=True, mav=(3, 6, 9))
+        with OHLCMpfPlotter(
+                tick_col=self.tick_col,
+                volume=True,
+        ) as plotter:
+            plotter.plot_basic(_df)
         plt.show()
 
 

@@ -12,6 +12,7 @@ from .const import Col, ColIntra, ColName
 from . import utils
 
 
+# TODO - need to revisit the design here to make sure it is robust
 class DataSlicer(_OHLCBase):
     """Collection of analytics for fixed time window, i.e. given year / month / week,
     suitable for seasonality analysis
@@ -64,7 +65,6 @@ class DataSlicer(_OHLCBase):
                 weeknum = self._preset_weeknum ,
             )
 
-
     def _parse_calendar_info(self):
 
         _df = self._df[[self.tick_col]].copy()
@@ -82,6 +82,14 @@ class DataSlicer(_OHLCBase):
             _df[col] = _df[col].astype(int)
 
         self._df_calendar = _df.copy()
+
+    @property
+    def df_with_calendar_info(self):
+        common_cols = set(self.df.columns) & set(self._df_calendar.columns)
+        common_cols.remove(self.tick_col)
+        if common_cols:
+            raise ValueError(f"Some calendar info cols already existed in df, please check: {common_cols}")
+        return self.df.merge(self._df_calendar, on=self.tick_col, how='left')
 
     def get_slice(
             self,
