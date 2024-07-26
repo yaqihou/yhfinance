@@ -3,8 +3,12 @@ import pandas as pd
 
 from .const import Col
 
-class _OHLCBase:
+# TODO - add more price cols on the fly
+#        Median. The Median Price of every bar for the specified period - (High + Low) / 2.
+#        Typical. The sum of High, Low, and Close prices divided by 3 for the specified period- (High + Low + Close) / 3.
+#        OHLC average. The arithmetical mean of High, Low, Open, and Close prices for the specified period - (Open + High + Low + Close) / 4.
 
+class _OHLCBase:
 
     def __init__(
             self, df: pd.DataFrame,

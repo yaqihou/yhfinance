@@ -55,7 +55,6 @@ class OHLCMpfPlotter:
         self._panel_ratios = panel_ratios
         self.figure_title = title
 
-
         self.move_legend_outside = move_legend_outside
         self.merge_legend_for_each_panel = merge_legend_for_each_panel
         
