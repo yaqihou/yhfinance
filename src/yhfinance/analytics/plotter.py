@@ -194,10 +194,14 @@ class OHLCMpfPlotter:
             self,
             df: pd.DataFrame,
             type: _T_TYPE_LITERAL = 'candle',
-            mav=(3,),
+            mav: Optional[tuple[int, ...]] = None,
             **kwargs
     ):
-        return self.plot(df, type=type, mav=mav, **kwargs)
+        args = {'type': type}
+        if mav is not None:
+            args['mav'] = mav
+
+        return self.plot(df, **args, **kwargs)
 
     def add_indicator(self, indicator: _BaseIndicator, *args, **kwargs):
 
