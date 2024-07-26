@@ -72,7 +72,7 @@ class DB:
             except Exception as e:
                 logger.error('Encountered error when dumping DataFrame to %s', table_name, exc_info=e)
             else:
-                logger.info('Successfully dump DataFrame [size: %s] into %s', table_name, str(df.shape))
+                logger.info('Successfully dump DataFrame [size: %s] into %s', str(df.shape), table_name)
         else:
             with self.conn as conn:
                 df.to_sql(table_name, conn, if_exists=if_exists, index=False)
