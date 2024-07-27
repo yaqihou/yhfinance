@@ -1,8 +1,9 @@
 # 
 import heapq
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
+from numpy.typing import ArrayLike
 import pandas as pd
 
 import mplfinance as mpf
@@ -53,10 +54,10 @@ class _BaseIndicator(_PriceColMixin, OHLCDataBase, abc.ABC):
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         """Return a list of panel definition returned by mpf.make_addplot"""
 
-    # TODO - return the final results as array / list of array
-    # @property
-    # def values(self) -> np.ndarray:
-    #     return
+    @property
+    @abc.abstractmethod
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        """Return the final result(s)as np.array"""
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -86,6 +87,9 @@ class _BaseIndicator(_PriceColMixin, OHLCDataBase, abc.ABC):
             self._df.drop(columns=drop_cols, inplace=True)
         self._df = self._df.merge(df, how='left', on=self.tick_col)
 
+    def __repr__(self) -> pd.DataFrame:
+        return self.df
+
 
 # -----------------------------------
 # Implementation starts below
@@ -107,6 +111,10 @@ class IndSMA(_RollingMixin, _BaseIndicator):
         _df[Col.Ind.SMA(self.period)] = self._df[self.price_col.name].rolling(self.period).mean()
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self._df[Col.Ind.SMA(self.period)].values
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         return [
@@ -136,6 +144,10 @@ class IndEMA(_RollingMixin, _BaseIndicator):
             span=self.period, adjust=False).mean()
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self._df[Col.Ind.EMA(self.period)].values
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         return [
@@ -171,6 +183,10 @@ class IndSMMA(_RollingMixin, _BaseIndicator):
         _df[Col.Ind.SMMA(self.period)] = vals.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self._df[Col.Ind.SMMA(self.period)].values
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         return [
@@ -273,6 +289,20 @@ class IndMACD(_BaseIndicator):
                              type='bar', width=0.7, secondary_y=False)
         ]
 
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return {
+            'Short': self.df[Col.Ind.MACD.EMA12].values,
+            'Long': self.df[Col.Ind.MACD.EMA26].values,
+            'MACD': self.df[
+                Col.Ind.MACD.MACD(
+                    self.short_term_window, self.long_term_window, self.signal_window)
+            ].values,
+            'Signal': self.df[
+                Col.Ind.MACD.Signal(
+                    self.short_term_window, self.long_term_window, self.signal_window)
+            ].values,
+        }
 
 class _IndRSI(_RollingMixin, _BaseIndicator):
 
@@ -330,6 +360,10 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
     @property
     def rsi_type(self) -> str:
         return self.rsi_col.RSI.name
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self.df[self.rsi_col.RSI(self.period)].values
 
     def _assign_rsi_result(self, df) -> pd.DataFrame:
         
@@ -424,21 +458,20 @@ class IndCutlerRSI(_IndRSI):
         return self._assign_rsi_result(_df)
 
 
-class IndTrueRange(_RollingMixin, _BaseIndicator):
+class IndTrueRange(_BaseIndicator):
 
     def __init__(
             self,
             data   : OHLCData,
-            period : int = 14
     ):
     
-        super().__init__(data, period=period)
+        super().__init__(data)
 
     def _calc(self) -> pd.DataFrame:
         _df = OHLCInterProcessor(self._data, tick_offset=-1)._df_offset
 
         # TR = max[(H-L), abs(H-Cp), abs(L-Cp)]
-        _df[Col.Ind.TrueRange.name] = pd.concat([
+        _df[Col.Ind.TrueRange] = pd.concat([
             _df[Col.High.cur] - _df[Col.Low.cur],
             (_df[Col.High.cur] - _df[Col.Close.sft]).abs(),
             (_df[Col.Low.cur] - _df[Col.Close.sft]).abs()
@@ -449,6 +482,9 @@ class IndTrueRange(_RollingMixin, _BaseIndicator):
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         raise NotImplementedError()
     
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self.df[Col.Ind.TrueRange].values
 
 class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
 
@@ -482,6 +518,10 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
             _df = _df[[self.tick_col, Col.Ind.AvgTrueRange(period)]]
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self.df[Col.Ind.AvgTrueRange(self.period)].values
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -550,6 +590,13 @@ class IndATRBand(_BandMixin, IndAvgTrueRange):
                 label=f'{Col.Ind.AvgTrueRange(self.period)} Band'
             )
         ]
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return {
+            'Up': self.df['PlotUp'].values,
+            'Dn': self.df['PlotDn'].values,
+        }
 
 
 class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
@@ -629,6 +676,10 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
         ]]
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self.df[self._col_supertrend_name].values
 
     def _adjust_base_boundary_for_supertrend(self, _df):
         """The upper line is the median price plus a multiple of Average
@@ -797,6 +848,13 @@ class IndStarcBand(_BandMixin, _BaseIndicator):
 
         return _df
 
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return {
+            'Up': self.df[Col.Ind.STARC.Up(self.period_sma, self.period_atr)].values,
+            'Dn': self.df[Col.Ind.STARC.Dn(self.period_sma, self.period_atr)].values
+        }
+
     def make_addplot(self, plotter_args: dict,
                      *args,
                      with_sma: bool = False,
@@ -882,6 +940,13 @@ class IndAroon(_RollingMixin, _BaseIndicator):
 
         return _df
 
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return {
+            'Up': self.df[Col.Ind.Aroon.Up(self.period)].values,
+            'Dn': self.df[Col.Ind.Aroon.Dn(self.period)].values
+        }
+
     @staticmethod
     def __clean_heap(heap, min_index):
 
@@ -955,6 +1020,10 @@ class IndAwesomeOscillator(_BaseIndicator):
         return _df
 
     @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self.df[Col.Ind.AwesomeOscillator.AO(self.period_fast, self.period_slow)].values
+
+    @property
     def need_new_panel_num(self) -> bool:
         return True
 
@@ -1025,6 +1094,13 @@ class IndBollingerBand(_RollingMixin, _BandMixin, _BaseIndicator):
         _df[_col_dn] = _sma_val - self._multi_dn * _std_val
 
         return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return {
+            'Up':  self.df[Col.Ind.BollingerBand.Up(self.period, self._multi_up)].values,
+            'Dn':  self.df[Col.Ind.BollingerBand.Dn(self.period, self._multi_dn)].values
+        }
 
     @property
     def need_new_panel_num(self) -> bool:
