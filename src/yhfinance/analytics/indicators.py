@@ -30,14 +30,14 @@ __all__ = [
 # TODO - add related indicators as class property
 
 
-class _BaseIndicator(OHLCDataBase, abc.ABC):
+class _BaseIndicator(_PriceColMixin, OHLCDataBase, abc.ABC):
 
     # TODO - need to implement for each indicator
     _category: str = "undefined"
     _abbrev: str = 'undefined'
 
-    def __init__(self, data: OHLCData):
-        super().__init__(data)
+    def __init__(self, data: OHLCData, price_col: ColName = Col.Close):
+        super().__init__(data, price_col=price_col)
 
         self.calc()
 
@@ -57,7 +57,6 @@ class _BaseIndicator(OHLCDataBase, abc.ABC):
     # @property
     # def values(self) -> np.ndarray:
     #     return
-    
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -91,7 +90,7 @@ class _BaseIndicator(OHLCDataBase, abc.ABC):
 # -----------------------------------
 # Implementation starts below
 
-class IndSMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+class IndSMA(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
@@ -118,7 +117,7 @@ class IndSMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
             )
         ]
 
-class IndEMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+class IndEMA(_RollingMixin, _BaseIndicator):
     """Return the exponential moving average"""
 
     def __init__(
@@ -148,7 +147,7 @@ class IndEMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
         ]
 
 
-class IndSMMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+class IndSMMA(_RollingMixin, _BaseIndicator):
     """Return the exponential moving average"""
 
     def __init__(
@@ -196,16 +195,15 @@ class IndMACD(_BaseIndicator):
         self.short_term_window = short_term_window
         self.long_term_window  = long_term_window
         self.signal_window     = signal_window
-        self.price_col         = price_col
 
-        super().__init__(data)
+        super().__init__(data, price_col=price_col)
 
     def _calc(self) -> pd.DataFrame:
         
-        _ewm_short = IndEMA(self._data, period=self.short_term_window)
+        _ewm_short = IndEMA(self._data, period=self.short_term_window, price_col=self.price_col)
         ewm_short = _ewm_short.df[Col.Ind.EMA(self.short_term_window)]
 
-        _ewm_long = IndEMA(self._data, period=self.long_term_window)
+        _ewm_long = IndEMA(self._data, period=self.long_term_window, price_col=self.price_col)
         ewm_long = _ewm_long.df[Col.Ind.EMA(self.long_term_window)]
 
         macd = ewm_short - ewm_long
@@ -282,12 +280,13 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
             self,
             data      : OHLCData,
             period    : int                 = 14,
+            price_col : ColName | str       = Col.Close,
             threshold : tuple[float, float] = (30, 70)
     ):
         self.ewm_ups: pd.DataFrame
         self.ewm_dns: pd.DataFrame
         self.threshold = threshold
-        super().__init__(data, period=period)
+        super().__init__(data, period=period, price_col=price_col)
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -295,12 +294,31 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
 
     def _get_gl_for_rsi(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
-        _df = OHLCInterProcessor(self._data, tick_offset=-1).add_close_return().get_result()
-        _df = _df[[self.tick_col, Col.Inter.CloseReturn.gl]].copy()
+        _inter_processor = OHLCInterProcessor(self._data, tick_offset=-1)
+        if self.price_col == Col.Close:
+            _inter_processor.add_close_return()
+            _col_res = Col.Inter.CloseReturn
+        elif self.price_col == Col.Open:
+            _inter_processor.add_open_return()
+            _col_res = Col.Inter.OpenReturn
+        elif self.price_col == Col.Median:
+            _inter_processor.add_median_return()
+            _col_res = Col.Inter.MedianReturn
+        elif self.price_col == Col.Typical:
+            _inter_processor.add_typical_return()
+            _col_res = Col.Inter.TypicalReturn
+        elif self.price_col == Col.Avg:
+            _inter_processor.add_average_return()
+            _col_res = Col.Inter.AvgReturn
+        else:
+            raise ValueError('Did not support given price col')
+            
+        _df = _inter_processor.get_result()
+        _df = _df[[self.tick_col, _col_res.gl]].copy()
 
-        ups = _df[Col.Inter.CloseReturn.gl].apply(lambda x: max(x, 0))
-        dns = _df[Col.Inter.CloseReturn.gl].apply(lambda x: -min(x, 0))
-        _df = _df.drop(columns=[Col.Inter.CloseReturn.gl])
+        ups = _df[_col_res.gl].apply(lambda x: max(x, 0))
+        dns = _df[_col_res.gl].apply(lambda x: -min(x, 0))
+        _df.drop(columns=[_col_res.gl], inplace=True)
 
         return _df, ups, dns
 

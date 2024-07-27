@@ -1,7 +1,7 @@
 
 from ._cols.base import ColName
 from ._cols.processor import ColIntra, ColToDay, ColInter, ColRolling
-from ._cols.indicators import ColInd
+from ._cols.indicators import ColInd, _T_RSI
 
 class Col:
 
@@ -12,11 +12,16 @@ class Col:
     High     = ColName('High')
     Low      = ColName('Low')
     Close    = ColName('Close')
+    Median   = ColName('MedianHL')
+    Typical  = ColName('TypicalHLC')
+    Avg      = ColName('AvgOHLC')
+
     Vol      = ColName('Volume')
 
     OHLC: tuple[str, ...] = (Open.name, High.name, Low.name, Close.name)
 
-    All: tuple[str, ...] = (*OHLC, Vol.name)
+    All_PRICE: tuple[str, ...] = (*OHLC, Median.name, Typical.name, Avg.name)
+    All_PRICE_WITH_VOL: tuple[str, ...] = (*OHLC, Median.name, Typical.name, Avg.name, Vol.name)
 
     Intra = ColIntra
     Inter = ColInter

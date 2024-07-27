@@ -157,13 +157,12 @@ class OHLCIntraProcessor(_OHLCBaseProcessor):
     def add_gl_streak(self):
         """Get the gain or lose streak, i.e. X ticks in row we see gain / lose in (Close - Open)
         """
-        values = self._df[Col.Close.name] - self._df[Col.Open.name]
-        self._add_gl_streak(
-            values, Col.Intra.GainStreak.name, Col.Intra.LossStreak.name, Col.Intra.Streak.name
-        )
+        values = self._df[Col.Close] - self._df[Col.Open]
+        self._add_gl_streak(values, Col.Intra.Streak.Gain, Col.Intra.Streak.Loss, Col.Intra.Streak.Curr)
         return self
 
 
+# TODO - add processing for Volume
 class OHLCInterProcessor(_OHLCBaseProcessor):
 
     def __init__(
@@ -187,7 +186,7 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
             tick_offset: int = -1,
             tick_col: str = Col.Date.name,
             suffixes: tuple[str, str] = ColName.suffixes,
-            value_columns: list[str] | tuple[str] = Col.All,
+            value_columns: list[str] | tuple[str] = Col.All_PRICE_WITH_VOL,
             copy: bool = True
     ):
         """Join based on the key_col, with shifted row
@@ -224,11 +223,17 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         """
 
         return self.add_close_open_spread(add_rtn_col=add_rtn_col)\
+                   .add_open_close_return(add_rtn_col=add_rtn_col)\
                    .add_close_return(add_rtn_col=add_rtn_col)\
                    .add_open_return(add_rtn_col=add_rtn_col)\
-                   .add_open_close_return(add_rtn_col=add_rtn_col)\
+                   .add_median_return(add_rtn_col=add_rtn_col)\
+                   .add_typical_return(add_rtn_col=add_rtn_col)\
+                   .add_average_return(add_rtn_col=add_rtn_col)\
                    .add_close_gl_streak()\
-                   .add_open_gl_streak()
+                   .add_open_gl_streak()\
+                   .add_median_gl_streak()\
+                   .add_typical_gl_streak()\
+                   .add_average_gl_streak()
 
     @rectify(inter_tick_check=True)
     def add_close_open_spread(self, *, col_res=Col.Inter.CloseOpenSpread, add_rtn_col: bool = True):
@@ -236,6 +241,13 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         """
 
         self._add_gl_return(col_res, Col.Open.cur, Col.Close.sft, add_rtn_col)
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_open_close_return(self, *, col_res=Col.Inter.OpenCloseReturn, add_rtn_col: bool = True):
+        """Add the column for the spread of Close_t - open_{t-1} """
+
+        self._add_gl_return(col_res, Col.Close.cur, Col.Open.sft, add_rtn_col)
         return self
 
     @rectify(inter_tick_check=True)
@@ -254,10 +266,24 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         return self
 
     @rectify(inter_tick_check=True)
-    def add_open_close_return(self, *, col_res=Col.Inter.OpenCloseReturn, add_rtn_col: bool = True):
-        """Add the column for the spread of Close_t - open_{t-1} """
+    def add_median_return(self, *, col_res=Col.Inter.MedianReturn, add_rtn_col: bool = True):
+        """Add the column for the spread of Median_t - Median_{t-1} """
 
-        self._add_gl_return(col_res, Col.Close.cur, Col.Open.sft, add_rtn_col)
+        self._add_gl_return(col_res, Col.Median.cur, Col.Median.sft, add_rtn_col)
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_typical_return(self, *, col_res=Col.Inter.TypicalReturn, add_rtn_col: bool = True):
+        """Add the column for the spread of Typical_t - Typical_{t-1} """
+
+        self._add_gl_return(col_res, Col.Typical.cur, Col.Typical.sft, add_rtn_col)
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_average_return(self, *, col_res=Col.Inter.AvgReturn, add_rtn_col: bool = True):
+        """Add the column for the spread of Average_t - Average_{t-1} """
+
+        self._add_gl_return(col_res, Col.Avg.cur, Col.Avg.sft, add_rtn_col)
         return self
 
     @rectify(inter_tick_check=True)
@@ -267,10 +293,7 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
 
         values = self._df_offset[Col.Close.cur] - self._df_offset[Col.Close.sft]
         self._add_gl_streak(
-            values,
-            Col.Inter.CloseGainStreak.name,
-            Col.Inter.CloseLossStreak.name,
-            Col.Inter.CloseStreak.name
+            values, Col.Inter.CloseStreak.Gain, Col.Inter.CloseStreak.Loss, Col.Inter.CloseStreak.Curr
         )
         return self
     
@@ -282,9 +305,42 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         values = self._df_offset[Col.Open.cur] - self._df_offset[Col.Open.sft]
         self._add_gl_streak(
             values,
-            Col.Inter.OpenGainStreak.name,
-            Col.Inter.OpenLossStreak.name,
-            Col.Inter.OpenStreak.name
+            Col.Inter.OpenStreak.Gain,
+            Col.Inter.OpenStreak.Loss,
+            Col.Inter.OpenStreak.Curr
+        )
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_median_gl_streak(self):
+        """Get the gain or lose streak based on inter tick change (Median_T - Median_{T-1})
+        """
+
+        values = self._df_offset[Col.Median.cur] - self._df_offset[Col.Median.sft]
+        self._add_gl_streak(
+            values, Col.Inter.MedianStreak.Gain, Col.Inter.MedianStreak.Loss, Col.Inter.MedianStreak.Curr
+        )
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_typical_gl_streak(self):
+        """Get the gain or lose streak based on inter tick change (Typical_T - Typical_{T-1})
+        """
+
+        values = self._df_offset[Col.Typical.cur] - self._df_offset[Col.Typical.sft]
+        self._add_gl_streak(
+            values, Col.Inter.TypicalStreak.Gain, Col.Inter.TypicalStreak.Loss, Col.Inter.TypicalStreak.Curr
+        )
+        return self
+
+    @rectify(inter_tick_check=True)
+    def add_average_gl_streak(self):
+        """Get the gain or lose streak based on inter tick change (Avg_T - Avg_{T-1})
+        """
+
+        values = self._df_offset[Col.Avg.cur] - self._df_offset[Col.Avg.sft]
+        self._add_gl_streak(
+            values, Col.Inter.AvgStreak.Gain, Col.Inter.AvgStreak.Loss, Col.Inter.AvgStreak.Curr
         )
         return self
 
@@ -572,7 +628,8 @@ class OHLCToDayProcessor(_OHLCBaseProcessor):
         curr_period_start = dates[0]
         next_period_start = func(curr_period_start)
 
-        for idx, date in enumerate(dates[1:], 1):
+        # for idx, date in enumerate(dates[1:], 1):
+        for date in dates[1:]:
             if date >= next_period_start:
                 curr_period_start = date
                 next_period_start = func(curr_period_start)

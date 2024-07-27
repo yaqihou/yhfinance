@@ -5,7 +5,7 @@ from .ohlc_cols import Col, ColIntra, ColName, _T_RSI
 __all__ = [
     '_BandMixin',
     '_RollingMixin',
-    '_PricePickMixin',
+    '_PriceColMixin',
 ]
 
 class _BandMixin:
@@ -34,13 +34,22 @@ class _RollingMixin:
         self.period = period
         super().__init__(*args, **kwargs)
 
-class _PricePickMixin:
+class _PriceColMixin:
 
     def __init__(self,
                  *args,
-                 price_col : ColName = Col.Close,
+                 price_col : ColName | str = Col.Close,
                  **kwargs
                  ):
 
-        self.price_col = price_col
+        if isinstance(price_col, str):
+            _price_col = ColName(price_col)
+        elif isinstance(price_col, ColName):
+            _price_col = price_col
+        else:
+            raise ValueError(f'price_col should be a str or ColName instance: {price_col.__class__.__name__}')
+
+        assert price_col in Col.All_PRICE
+        
+        self.price_col = _price_col
         super().__init__(*args, **kwargs)

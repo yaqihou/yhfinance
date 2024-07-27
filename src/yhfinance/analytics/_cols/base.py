@@ -12,6 +12,15 @@ class ColName:
             return self.name
         else:
             return self.callback(self, *args, **kwargs)
+
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, (str, ColName)):
+            raise ValueError("Only support compare ColName with ColName or str")
+        if isinstance(value, str):
+            _cmp_str = value
+        else:
+            _cmp_str = value.name
+        return self.name == _cmp_str
         
     @property
     def sft(self) -> str:
