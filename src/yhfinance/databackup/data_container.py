@@ -394,7 +394,7 @@ class InfoData(BaseData):
         _df = pd.DataFrame.from_dict({
             'info_json': [json.dumps(self.info)]
         })
-        return [(self._add_job_metainfo_cols(_df, job), TableName.INFO)]
+        return [(self._add_job_metainfo_cols(_df, job), TableName.Info)]
 
 
 @dataclass
