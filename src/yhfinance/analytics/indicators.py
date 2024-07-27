@@ -13,6 +13,8 @@ from ._base import _OHLCBase
 from .const import Col, ColIntra, ColName, _T_RSI
 from .ohlc_processor import OHLCInterProcessor
 
+from ._indicators_mixin import *
+
 
 __all__ = [
     'IndSMA',
@@ -25,6 +27,7 @@ __all__ = [
 
 # TODO - add plotter configs into each class so that could be used outside
 # TODO - add related indicators as class property
+# TODO - add SMMA, EMA and other base indicators
 
 
 class _BaseIndicator(_OHLCBase, abc.ABC):
@@ -78,43 +81,6 @@ class _BaseIndicator(_OHLCBase, abc.ABC):
         self._df = self._df.merge(df, how='left', on=self.tick_col)
 
 
-class _BandMixin:
-
-    def __init__(self,
-                 *args,
-                 multiplier    : int           = 3,
-                 multiplier_dn : Optional[int] = None,  # if None, the same as multiplier
-                 **kwargs
-                 ):
-
-        self.multiplier = multiplier
-        self._multi_up = multiplier
-        self._multi_dn = multiplier_dn or self._multi_up
-
-        super().__init__(*args, **kwargs)
-
-class _RollingMixin:
-
-    def __init__(self,
-                 *args,
-                 period : int = 7,  # if None, the same as multiplier
-                 **kwargs
-                 ):
-
-        self.period = period
-        super().__init__(*args, **kwargs)
-
-class _PricePickMixin:
-
-    def __init__(self,
-                 *args,
-                 price_col : ColName = Col.Close,
-                 **kwargs
-                 ):
-
-        self.price_col = price_col
-        super().__init__(*args, **kwargs)
-
 
 # -----------------------------------
 # Implementation starts below
@@ -147,7 +113,71 @@ class IndSMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
             )
         ]
 
+class IndEMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+    """Return the exponential moving average"""
 
+    def __init__(
+            self,
+            df       : pd.DataFrame,
+            tick_col : str = Col.Date.name,
+            period   : int = 7,
+            price_col : ColName = Col.Close,  # if None, the same as multiplier
+    ):
+
+        super().__init__(df, tick_col, period=period, price_col=price_col)
+
+    def _calc(self) -> None:
+
+        _df = self._df[[self.tick_col]].copy()
+        _df[Col.Ind.EMA(self.period)] = self.df[self.price_col.name].ewm(
+            span=self.period, adjust=False).mean()
+
+        return _df
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.EMA(self.period)],
+                type='line', panel=plotter_args['main_panel'],
+                label=Col.Ind.EMA(self.period)
+            )
+        ]
+
+
+class IndSMMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
+    """Return the exponential moving average"""
+
+    def __init__(
+            self,
+            df       : pd.DataFrame,
+            tick_col : str = Col.Date.name,
+            period   : int = 7,
+            price_col : ColName = Col.Close,  # if None, the same as multiplier
+    ):
+
+        super().__init__(df, tick_col, period=period, price_col=price_col)
+
+    def _calc(self) -> None:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        vals = self.df[self.price_col.name].copy()
+        vals.iloc[self.period] = vals.iloc[:self.period].mean()
+        vals.iloc[:self.period] = pd.NA
+        
+        alpha = 1 / self.period
+        _df[Col.Ind.SMMA(self.period)] = vals.ewm(alpha=alpha, ignore_na=True, adjust=False).mean()
+
+        return _df
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.SMMA(self.period)],
+                type='line', panel=plotter_args['main_panel'],
+                label=Col.Ind.EMA(self.period)
+            )
+        ]
 
 class IndMACD(_BaseIndicator):
 
@@ -170,10 +200,13 @@ class IndMACD(_BaseIndicator):
 
     def _calc(self) -> pd.DataFrame:
         
-        ewm_short = self._df[self.price_col.name].ewm(
-            span=self.short_term_window, adjust=False).mean()
-        ewm_long = self._df[self.price_col.name].ewm(
-            span=self.long_term_window, adjust=False).mean()
+        _ewm_short = IndEMA(self._df, self.tick_col,
+                            period=self.short_term_window)
+        ewm_short = _ewm_short[Col.Ind.EMA(self.short_term_window)]
+
+        _ewm_long = IndEMA(self._df, self.tick_col,
+                            period=self.long_term_window)
+        ewm_long = _ewm_long[Col.Ind.EMA(self.long_term_window)]
 
         macd = ewm_short - ewm_long
         signal = macd.ewm(span=self.signal_window, adjust=False).mean()
