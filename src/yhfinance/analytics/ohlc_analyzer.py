@@ -8,10 +8,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from yhfinance.analytics.const import ColName
-from yhfinance.analytics.defs import OHLCData, OHLCDataBase
-
-from .const import Col, ColName
+from .ohlc_cols import Col, ColName
+from .ohlc_data import OHLCData, OHLCDataBase
 from .plotter import OHLCMpfPlotter, OHLCMultiFigurePlotter
 from .dataslicer import DataSlicer
 

@@ -7,7 +7,7 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
-from .defs import OHLCDataBase, OHLCData
+from .ohlc_data import OHLCDataBase, OHLCData
 
 
 # TODO - need to revisit the design here to make sure it is robust

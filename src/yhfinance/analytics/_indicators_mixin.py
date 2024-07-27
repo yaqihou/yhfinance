@@ -1,6 +1,6 @@
 
 from typing import Optional
-from .const import Col, ColIntra, ColName, _T_RSI
+from .ohlc_cols import Col, ColIntra, ColName, _T_RSI
 
 __all__ = [
     '_BandMixin',

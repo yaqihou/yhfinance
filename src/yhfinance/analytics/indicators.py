@@ -8,9 +8,9 @@ import pandas as pd
 import mplfinance as mpf
 
 import abc
-from .const import Col, ColName, _T_RSI
+from .ohlc_cols import Col, ColName, _T_RSI
 from .ohlc_processor import OHLCInterProcessor
-from .defs import OHLCData, OHLCDataBase
+from .ohlc_data import OHLCData, OHLCDataBase
 
 from ._indicators_mixin import *
 

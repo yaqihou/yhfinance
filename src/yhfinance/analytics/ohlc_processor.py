@@ -9,9 +9,9 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
-from .const import Col, ColName
+from .ohlc_cols import Col, ColName
 from . import utils
-from .defs import OHLCData, OHLCDataBase
+from .ohlc_data import OHLCData, OHLCDataBase
 
 # TODO - add support to log_return
 

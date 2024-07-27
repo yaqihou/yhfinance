@@ -9,7 +9,7 @@ import mplfinance as mpf
 
 import pandas as pd
 
-from .const import Col, ColName
+from .ohlc_cols import Col, ColName
 from .indicators import _BaseIndicator
 
 
