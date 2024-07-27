@@ -22,11 +22,12 @@ __all__ = [
     'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
     'IndSupertrend',
     'IndAroon',
-    'IndAwesomeOscillator']
+    'IndAwesomeOscillator',
+    'IndBollingerBand'
+]
 
 # TODO - add plotter configs into each class so that could be used outside
 # TODO - add related indicators as class property
-# TODO - add SMMA, EMA and other base indicators
 
 
 class _BaseIndicator(OHLCDataBase, abc.ABC):
@@ -964,3 +965,69 @@ class IndAwesomeOscillator(_BaseIndicator):
         
         return ret
 
+
+class IndBollingerBand(_RollingMixin, _BandMixin, _BaseIndicator):
+    """The Awesome Oscillator is an indicator used to measure market
+    momentum. AO calculates the difference of a 34 Period and 5 Period
+    Simple Moving Averages. The Simple Moving Averages that are used are
+    not calculated using closing price but rather each bar's midpoints. AO
+    is generally used to affirm trends or to anticipate possible reversals.
+
+    """
+    
+
+    def __init__(
+            self,
+            data          : OHLCData,
+            period        : int           = 20,
+            multiplier    : int           = 2,
+            multiplier_dn : Optional[int] = None,
+    ):
+        """
+        period: for SMA, usually between 5 and 10
+        multiplier: for ATR scale, commonly take to be 2
+        """
+        super().__init__(data, period=period, multiplier=multiplier, multiplier_dn=multiplier_dn)
+
+    def _calc(self) -> pd.DataFrame:
+
+        self._sma = IndSMA(self._data, self.period)
+        _sma_val = self._sma.df[Col.Ind.SMA(self.period)].values
+
+        self._std = self.df[Col.Close.name].rolling(self.period).std()
+        _std_val = self._std.values
+
+        _df = self._df[[self.tick_col]].copy()
+        _df[Col.Ind.BollingerBand.SMA(self.period)] = _sma_val
+        _df[Col.Ind.BollingerBand.Std(self.period)] = _std_val
+
+        _col_up = Col.Ind.BollingerBand.Up(self.period, self._multi_up)
+        _col_dn = Col.Ind.BollingerBand.Dn(self.period, self._multi_dn)
+        _df[_col_up] = _sma_val + self._multi_up * _std_val
+        _df[_col_dn] = _sma_val - self._multi_dn * _std_val
+
+        return _df
+
+    @property
+    def need_new_panel_num(self) -> bool:
+        return False
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        args = (self._multi_up,) if self._multi_up == self._multi_dn else (self._multi_up, self._multi_dn)
+        kwargs = {
+            'label': Col.Ind.BollingerBand.BB(self.period, *args),
+            'secondary_y': False,
+            'fill_between': {
+                'y1': self.df[Col.Ind.BollingerBand.Up(self.period, self._multi_up)].values,
+                'y2': self.df[Col.Ind.BollingerBand.Dn(self.period, self._multi_dn)].values,
+                'alpha': 0.3,
+                'color': 'dimgray',
+            }
+        }
+
+        return [
+            mpf.make_addplot(self.df[Col.Ind.BollingerBand.SMA(self.period)], **kwargs)
+        ]

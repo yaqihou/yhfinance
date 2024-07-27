@@ -69,8 +69,8 @@ class ColToDay:
 
 _T_MACD = namedtuple('MACD', ['EMA12', 'EMA26', 'MACD', 'Signal'])
 _MACD = _T_MACD(
-    ColName('EMA-12'),
-    ColName('EMA-26'),
+    ColName('MACD-EMA12'),
+    ColName('MACD-EMA26'),
     ColName('MACD'),
     ColName('MACDSignal'))
 
@@ -104,27 +104,36 @@ _SUPERTREND = _T_SUPERTREND(
     ColName('SupertrendMode')
 )
 
-_T_AROON = namedtuple('SuperTrend', ['Up', 'Dn', 'Oscillator'])
+_T_AROON = namedtuple('Aroon', ['Up', 'Dn', 'Oscillator'])
 _AROON = _T_AROON(
     ColName('AroonUp', callback=indicator_callback),
     ColName('AroonDn', callback=indicator_callback),
     ColName('AroonOscillator', callback=indicator_callback),
 )
 
-_T_STARC = namedtuple('SuperTrend', ['SMA', 'ATR', 'Up', 'Dn', 'STARC'])
+_T_STARC = namedtuple('STARCBand', ['SMA', 'ATR', 'Up', 'Dn', 'STARC'])
 _STARC = _T_STARC(
-    ColName('SMA', callback=indicator_callback),
-    ColName('ATR', callback=indicator_callback),
+    ColName('STARC-SMA', callback=indicator_callback),
+    ColName('STARC-ATR', callback=indicator_callback),
     ColName('STARCUp', callback=indicator_callback),
     ColName('STARCDn', callback=indicator_callback),
     ColName('STARC', callback=indicator_callback),
 )
 
-_T_AWESOME_OSCILLATOR = namedtuple('SuperTrend', ['Fast', 'Slow', 'AO'])
+_T_AWESOME_OSCILLATOR = namedtuple('AwesomeOscillator', ['Fast', 'Slow', 'AO'])
 _AWESOME_OSCILLATOR = _T_AWESOME_OSCILLATOR(
-    ColName('SMAFast', callback=indicator_callback),
-    ColName('SMASlow', callback=indicator_callback),
+    ColName('AO-SMAFast', callback=indicator_callback),
+    ColName('AO-SMASlow', callback=indicator_callback),
     ColName('AO', callback=indicator_callback),
+)
+
+_T_BOLLINGER_BAND = namedtuple('BollingerBand', ['SMA', 'Std', 'Up', 'Dn', 'BB'])
+_BOLLINGER_BAND = _T_BOLLINGER_BAND(
+    ColName('BB-SMA', callback=indicator_callback),
+    ColName('BB-Std', callback=indicator_callback),
+    ColName('BBUp', callback=indicator_callback),
+    ColName('BBDn', callback=indicator_callback),
+    ColName('BollingerBand', callback=indicator_callback),
 )
     
 # TODO - could further divided into MOmentum / etc.
@@ -137,6 +146,7 @@ class ColInd:
     SMMA = ColName('SMMA', callback=indicator_callback)
 
     AwesomeOscillator = _AWESOME_OSCILLATOR
+    BollingerBand = _BOLLINGER_BAND
 
     MACD = _MACD
     RSIWilder = _RSIWilder
