@@ -1,6 +1,5 @@
 # 
 import heapq
-from collections import defaultdict
 from typing import Optional
 
 import numpy as np
@@ -9,9 +8,9 @@ import pandas as pd
 import mplfinance as mpf
 
 import abc
-from ._base import _OHLCBase
-from .const import Col, ColIntra, ColName, _T_RSI
+from .const import Col, ColName, _T_RSI
 from .ohlc_processor import OHLCInterProcessor
+from .defs import OHLCData, OHLCDataBase
 
 from ._indicators_mixin import *
 
@@ -30,13 +29,13 @@ __all__ = [
 # TODO - add SMMA, EMA and other base indicators
 
 
-class _BaseIndicator(_OHLCBase, abc.ABC):
+class _BaseIndicator(OHLCDataBase, abc.ABC):
 
     # TODO - need to implement for each indicator
     _category: str = "undefined"
 
-    def __init__(self, df: pd.DataFrame, tick_col: str = Col.Date.name):
-        super().__init__(df, tick_col)
+    def __init__(self, data: OHLCData):
+        super().__init__(data)
 
         self.calc()
 
@@ -77,9 +76,8 @@ class _BaseIndicator(_OHLCBase, abc.ABC):
                 drop_cols.append(col)
         
         if drop_cols:
-            self._df = self._df.drop(columns=drop_cols)
+            self._df.drop(columns=drop_cols, inplace=True)
         self._df = self._df.merge(df, how='left', on=self.tick_col)
-
 
 
 # -----------------------------------
@@ -89,25 +87,24 @@ class IndSMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df       : pd.DataFrame,
-            tick_col : str = Col.Date.name,
-            period   : int = 7,
+            data      : OHLCData,
+            period    : int = 7,
             price_col : ColName = Col.Close,  # if None, the same as multiplier
     ):
 
-        super().__init__(df, tick_col, period=period, price_col=price_col)
+        super().__init__(data, period=period, price_col=price_col)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
 
         _df = self._df[[self.tick_col]].copy()
-        _df[Col.Ind.SMA(self.period)] = self.df[self.price_col.name].rolling(self.period).mean()
+        _df[Col.Ind.SMA(self.period)] = self._df[self.price_col.name].rolling(self.period).mean()
 
         return _df
 
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         return [
             mpf.make_addplot(
-                self.df[Col.Ind.SMA(self.period)],
+                self._df[Col.Ind.SMA(self.period)],
                 type='line', panel=plotter_args['main_panel'],
                 label=Col.Ind.SMA(self.period)
             )
@@ -118,15 +115,14 @@ class IndEMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df       : pd.DataFrame,
-            tick_col : str = Col.Date.name,
-            period   : int = 7,
+            data      : OHLCData,
+            period    : int = 7,
             price_col : ColName = Col.Close,  # if None, the same as multiplier
     ):
 
-        super().__init__(df, tick_col, period=period, price_col=price_col)
+        super().__init__(data, period=period, price_col=price_col)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
 
         _df = self._df[[self.tick_col]].copy()
         _df[Col.Ind.EMA(self.period)] = self.df[self.price_col.name].ewm(
@@ -149,15 +145,14 @@ class IndSMMA(_RollingMixin, _PricePickMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df       : pd.DataFrame,
-            tick_col : str = Col.Date.name,
-            period   : int = 7,
+            data      : OHLCData,
+            period    : int = 7,
             price_col : ColName = Col.Close,  # if None, the same as multiplier
     ):
 
-        super().__init__(df, tick_col, period=period, price_col=price_col)
+        super().__init__(data, period=period, price_col=price_col)
 
-    def _calc(self) -> None:
+    def _calc(self) -> pd.DataFrame:
 
         _df = self._df[[self.tick_col]].copy()
 
@@ -183,8 +178,7 @@ class IndMACD(_BaseIndicator):
 
     def __init__(
             self,
-            df                : pd.DataFrame,
-            tick_col          : str     = Col.Date.name,
+            data              : OHLCData,
             short_term_window : int     = 12,
             long_term_window  : int     = 26,
             signal_window     : int     = 9,
@@ -196,17 +190,15 @@ class IndMACD(_BaseIndicator):
         self.signal_window     = signal_window
         self.price_col         = price_col
 
-        super().__init__(df, tick_col)
+        super().__init__(data)
 
     def _calc(self) -> pd.DataFrame:
         
-        _ewm_short = IndEMA(self._df, self.tick_col,
-                            period=self.short_term_window)
-        ewm_short = _ewm_short[Col.Ind.EMA(self.short_term_window)]
+        _ewm_short = IndEMA(self._data, period=self.short_term_window)
+        ewm_short = _ewm_short.df[Col.Ind.EMA(self.short_term_window)]
 
-        _ewm_long = IndEMA(self._df, self.tick_col,
-                            period=self.long_term_window)
-        ewm_long = _ewm_long[Col.Ind.EMA(self.long_term_window)]
+        _ewm_long = IndEMA(self._data, period=self.long_term_window)
+        ewm_long = _ewm_long.df[Col.Ind.EMA(self.long_term_window)]
 
         macd = ewm_short - ewm_long
         signal = macd.ewm(span=self.signal_window, adjust=False).mean()
@@ -280,15 +272,14 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df        : pd.DataFrame,
-            tick_col  : str                 = Col.Date.name,
+            data      : OHLCData,
             period    : int                 = 14,
             threshold : tuple[float, float] = (30, 70)
     ):
         self.ewm_ups: pd.DataFrame
         self.ewm_dns: pd.DataFrame
         self.threshold = threshold
-        super().__init__(df, tick_col, period=period)
+        super().__init__(data, period=period)
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -296,7 +287,7 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
 
     def _get_gl_for_rsi(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
-        _df = OHLCInterProcessor(self.df, tick_offset=-1).add_close_return().get_result()
+        _df = OHLCInterProcessor(self._data, tick_offset=-1).add_close_return().get_result()
         _df = _df[[self.tick_col, Col.Inter.CloseReturn.gl]].copy()
 
         ups = _df[Col.Inter.CloseReturn.gl].apply(lambda x: max(x, 0))
@@ -411,15 +402,14 @@ class IndTrueRange(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df       : pd.DataFrame,
-            tick_col : str = Col.Date.name,
-            period   : int = 14
+            data   : OHLCData,
+            period : int = 14
     ):
     
-        super().__init__(df, tick_col, period=period)
+        super().__init__(data, period=period)
 
     def _calc(self) -> pd.DataFrame:
-        _df = OHLCInterProcessor(self.df, tick_offset=-1)._df_offset
+        _df = OHLCInterProcessor(self._data, tick_offset=-1)._df_offset
 
         # TR = max[(H-L), abs(H-Cp), abs(L-Cp)]
         _df[Col.Ind.TrueRange.name] = pd.concat([
@@ -438,14 +428,13 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df       : pd.DataFrame,
-            tick_col : str = Col.Date.name,
+            data: OHLCData,
             period   : int = 14,
             keep_tr_result: bool = True
     ):
     
         self.keep_tr_result = keep_tr_result
-        super().__init__(df, tick_col, period=period)
+        super().__init__(data, period=period)
 
     def _calc(self) -> pd.DataFrame:
         # ATR_curr = ATR_prev * (n-1) / n + TR_curr * (1/n)
@@ -453,7 +442,7 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
         # initial condition is ATR_0 = mean(sum(TR_n))
         period = self.period
 
-        ind_tr = IndTrueRange(self.df, self.tick_col, period)
+        ind_tr = IndTrueRange(self._data, period)
         _df = ind_tr.get_result()
 
         _tr = _df[Col.Ind.TrueRange.name].copy()
@@ -492,16 +481,15 @@ class IndATRBand(_BandMixin, IndAvgTrueRange):
     """
 
     def __init__(self,
-                 df: pd.DataFrame,
-                 tick_col: str = Col.Date.name,
-                 period: int = 5,
-                 multiplier: int = 3,
-                 shift_ref_col: ColName = Col.Close,
-                 keep_tr_result: bool = True):
+                 data           : OHLCData,
+                 period         : int = 5,
+                 multiplier     : int = 3,
+                 shift_ref_col  : ColName = Col.Close,
+                 keep_tr_result : bool = True):
 
         self.shift_ref_col: ColName = shift_ref_col
 
-        super().__init__(df, tick_col,
+        super().__init__(data,
                          period=period, multiplier=multiplier,
                          keep_tr_result=keep_tr_result)
 
@@ -563,13 +551,12 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df            : pd.DataFrame,
-            tick_col      : str           = Col.Date.name,
+            data          : OHLCData,
             period        : int           = 7,
             multiplier    : int           = 3,
             multiplier_dn : Optional[int] = None  # if None, the same as multiplier
     ):
-        super().__init__(df, tick_col,
+        super().__init__(data,
                          period=period,
                          multiplier=multiplier, multiplier_dn=multiplier_dn)
 
@@ -585,7 +572,7 @@ class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
         _multi_up = self._multi_up
         _multi_dn = self._multi_dn
 
-        ind_atr = IndAvgTrueRange(self.df, self.tick_col, period)
+        ind_atr = IndAvgTrueRange(self._data, period)
         _df = ind_atr.get_result()
 
         # NOTE - the rolling min is one way to use but that will introduce another paratermeter for the
@@ -752,8 +739,7 @@ class IndStarcBand(_BandMixin, _BaseIndicator):
 
     def __init__(
             self,
-            df            : pd.DataFrame,
-            tick_col      : str           = Col.Date.name,
+            data          : OHLCData,
             period_sma    : int           = 5,
             period_atr    : int           = 15,
             multiplier    : int           = 3,
@@ -765,15 +751,15 @@ class IndStarcBand(_BandMixin, _BaseIndicator):
         """
         self.period_sma = period_sma
         self.period_atr = period_atr
-        super().__init__(df, tick_col,
+        super().__init__(data,
                          multiplier=multiplier, multiplier_dn=multiplier_dn)
 
     def _calc(self) -> pd.DataFrame:
 
-        self._sma = IndSMA(self.df, self.tick_col, self.period_sma)
+        self._sma = IndSMA(self._data, self.period_sma)
         _sma_val = self._sma.df[Col.Ind.SMA(self.period_sma)].values
 
-        self._atr = IndAvgTrueRange(self.df, self.tick_col, self.period_atr, keep_tr_result=False)
+        self._atr = IndAvgTrueRange(self._data, self.period_atr, keep_tr_result=False)
         _atr_val = self._atr.df[Col.Ind.AvgTrueRange(self.period_atr)].values
 
 
@@ -813,10 +799,6 @@ class IndStarcBand(_BandMixin, _BaseIndicator):
         
         return ret
 
-
-
-
-
 class IndAroon(_RollingMixin, _BaseIndicator):
     """The Aroon indicator is a technical analysis tool used to identify
     trends and potential reversal points in the price movements of a
@@ -832,11 +814,10 @@ class IndAroon(_RollingMixin, _BaseIndicator):
     """
 
     def __init__(self,
-                 df: pd.DataFrame,
-                 tick_col: str = Col.Date.name,
+                 data  : OHLCData,
                  period: int = 14):
 
-        super().__init__(df, tick_col, period=period)
+        super().__init__(data, period=period)
 
     def _calc(self) -> pd.DataFrame:
 

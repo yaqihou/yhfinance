@@ -7,13 +7,11 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
-from ._base import _OHLCBase
-from .const import Col, ColIntra, ColName
-from . import utils
+from .defs import OHLCDataBase, OHLCData
 
 
 # TODO - need to revisit the design here to make sure it is robust
-class DataSlicer(_OHLCBase):
+class DataSlicer(OHLCDataBase):
     """Collection of analytics for fixed time window, i.e. given year / month / week,
     suitable for seasonality analysis
     """
@@ -23,14 +21,14 @@ class DataSlicer(_OHLCBase):
 
     def __init__(
             self,
-            df: pd.DataFrame, tick_col: str = Col.Date.name,
+            data    : OHLCData,
             year    : Optional[int] = None,
             month   : Optional[int] = None,
             qtr     : Optional[int] = None,
             weekday : Optional[int] = None,
             weeknum : Optional[int] = None,
     ):
-        super().__init__(df, tick_col)
+        super().__init__(data)
         self._parse_calendar_info()
 
         self._preset_year     = year
@@ -39,31 +37,33 @@ class DataSlicer(_OHLCBase):
         self._preset_weekday  = weekday
         self._preset_weeknum  = weeknum
 
-    def __call__(self, obj: _OHLCBase | pd.DataFrame) -> Optional[pd.DataFrame]:
+    def __call__(self, obj: OHLCDataBase | pd.DataFrame) -> Optional[pd.DataFrame]:
 
         if isinstance(obj, pd.DataFrame):
-            return self.get_slice(
-                df      = obj                  ,
-                year    = self._preset_year    ,
-                month   = self._preset_month   ,
-                qtr     = self._preset_qtr     ,
-                weekday = self._preset_weekday ,
-                weeknum = self._preset_weeknum ,
-            )
+            _trg_df = obj
+        elif isinstance(obj, OHLCDataBase):
+            _trg_df = obj._df
         else:
-            if not isinstance(obj, _OHLCBase):
-                print('Slice is supposed to be applied to a OHLC instance but given'
-                      f' instance is {obj.__class__.__name__}  may work at long as obj'
-                      ' has an attribute _df as a PandasFrame following the same step')
-            obj._df_raw = obj._df.copy()
-            obj._df = self.get_slice(
-                df      = obj._df_raw          ,
-                year    = self._preset_year    ,
-                month   = self._preset_month   ,
-                qtr     = self._preset_qtr     ,
-                weekday = self._preset_weekday ,
-                weeknum = self._preset_weeknum ,
-            )
+            _trg_df = obj._df
+            print(
+                'Slice is supposed to be applied to a OHLC instance but given'
+                f' instance is {obj.__class__.__name__}  may work at long as obj'
+                ' has an attribute _df as a PandasFrame following the same step')
+
+        df_slice = self.get_slice(
+            df      = _trg_df              ,
+            year    = self._preset_year    ,
+            month   = self._preset_month   ,
+            qtr     = self._preset_qtr     ,
+            weekday = self._preset_weekday ,
+            weeknum = self._preset_weeknum ,
+            copy    = True
+        )
+
+        if isinstance(obj, pd.DataFrame):
+            return df_slice
+        elif isinstance(obj, OHLCDataBase):
+            obj._df = df_slice
 
     def _parse_calendar_info(self):
 
@@ -130,14 +130,14 @@ class DataSlicer(_OHLCBase):
     def calendar_info_cols(self):
         return self._calendar_info_cols
 
-    @property
-    def year_min(self):
-        return self._df['Year'].min()
+    # @property
+    # def year_min(self):
+    #     return self.df['Year'].min()
 
-    @property
-    def year_max(self):
-        return self._df['Year'].max()
+    # @property
+    # def year_max(self):
+    #     return self.df['Year'].max()
 
-    @property
-    def years(self) -> list[int]:
-        return sorted(self._df['Year'].unique().tolist())
+    # @property
+    # def years(self) -> list[int]:
+    #     return sorted(self._df['Year'].unique().tolist())

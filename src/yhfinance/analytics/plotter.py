@@ -202,9 +202,13 @@ class OHLCMpfPlotter:
 
         return self.plot(df, **args, **kwargs)
 
-    def add_indicator(self, indicator: _BaseIndicator, *args, **kwargs):
+    def add_indicator(self,
+                      indicator: _BaseIndicator,
+                      *args,
+                      new_panel: bool = False,
+                      **kwargs):
 
-        if indicator.need_new_panel_num:
+        if new_panel or indicator.need_new_panel_num:
             new_panel_num = self.get_new_panel_num()
         else:
             new_panel_num = None

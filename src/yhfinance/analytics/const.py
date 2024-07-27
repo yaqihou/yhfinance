@@ -126,6 +126,8 @@ class ColInd:
     # TODO - add function to list by categories
 
     SMA = ColName('SMA', callback=indicator_callback)
+    EMA = ColName('EMA', callback=indicator_callback)
+    SMMA = ColName('SMMA', callback=indicator_callback)
 
     MACD = _MACD
     RSIWilder = _RSIWilder

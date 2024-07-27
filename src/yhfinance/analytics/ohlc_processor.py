@@ -9,9 +9,9 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
-from ._base import _OHLCBase
-from .const import Col, ColIntra, ColName
+from .const import Col, ColName
 from . import utils
+from .defs import OHLCData, OHLCDataBase
 
 # TODO - add support to log_return
 
@@ -56,7 +56,7 @@ def rectify(
     return decorator
 
 
-class _OHLCBaseProcessor(_OHLCBase):
+class _OHLCBaseProcessor(OHLCDataBase):
 
     def _add_gl_streak(
             self,
@@ -94,13 +94,13 @@ class _OHLCBaseProcessor(_OHLCBase):
 
         return self
 
-    def __add__(self, obj: _OHLCBase):
+    def __add__(self, obj):
 
-        common_cols = list(set(self._df.columns) & set(obj._df.columns))
-        _df = self._df.merge(obj._df, on=common_cols, how='left')
+        if not isinstance(obj, _OHLCBaseProcessor):
+            raise ValueError(
+                f'Only support add OHLC processor with another process, {obj.__class__.__name__}')
 
-        return _OHLCBaseProcessor(df=_df, tick_col=self.tick_col)
-
+        return _OHLCBaseProcessor(self._data + obj._data)
 
 
 class OHLCIntraProcessor(_OHLCBaseProcessor):
@@ -167,18 +167,17 @@ class OHLCIntraProcessor(_OHLCBaseProcessor):
 class OHLCInterProcessor(_OHLCBaseProcessor):
 
     def __init__(
-            self, df: pd.DataFrame,
-            tick_col: str = Col.Date.name,
+            self, data: OHLCData,
             tick_offset: int = -1):
         """time_offset: used when joining by tick difference"""
-        super().__init__(df, tick_col)
+        super().__init__(data)
 
         self.tick_offset = tick_offset
         
         self._df_offset = self._join_by_time_diff(
             self._df,
             tick_offset=tick_offset,
-            tick_col=tick_col,
+            tick_col=self.tick_col,
             copy = True
         )
 
@@ -296,13 +295,12 @@ _T_RTN_TYPE = Literal['simple', 'log', 'ln']
 class OHLCTrailingProcessor(_OHLCBaseProcessor):
 
     def __init__(self,
-                 df: pd.DataFrame,
-                 tick_col: str = Col.Date.name,
+                 data: OHLCData,
                  padding: Literal['keep', 'drop'] = 'keep'):
         """
         padding [bool]: keep or drop for the first n observations in the rolling window
         """
-        super().__init__(df, tick_col)
+        super().__init__(data)
 
         self.padding = padding
         if padding != 'keep':
@@ -435,7 +433,7 @@ class OHLCTrailingProcessor(_OHLCBaseProcessor):
         else:
 
             if vol_type.startswith('Inter'):
-                _processor = OHLCInterProcessor(self._df_raw.copy())
+                _processor = OHLCInterProcessor(self._data)
                 _df_offset = _processor.add_all().get_result()
 
                 if vol_type == 'InterClose':
@@ -458,7 +456,7 @@ class OHLCTrailingProcessor(_OHLCBaseProcessor):
 
             else:
                 # Inter vol
-                _processor = OHLCIntraProcessor(self._df_raw.copy())
+                _processor = OHLCIntraProcessor(self._data)
                 _df = _processor.add_all().get_result()
                 if vol_type == 'Intra':
                     _col_rtn_name = Col.Intra.Return.rtn if rtn_type == 'simple' else Col.Intra.Return.ln_rtn

@@ -6,15 +6,11 @@ from typing import Literal, get_args, Optional
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-import datetime as dt
-
-import seaborn as sns
 import matplotlib.pyplot as plt
-import mplfinance as mpf
 
 from yhfinance.analytics.const import ColName
+from yhfinance.analytics.defs import OHLCData, OHLCDataBase
 
-from ._base import _OHLCBase
 from .const import Col, ColName
 from .plotter import OHLCMpfPlotter, OHLCMultiFigurePlotter
 from .dataslicer import DataSlicer
@@ -56,12 +52,12 @@ class SimpleStratRes:
 _T_VALID_SIMPLE_STRAT = Literal['buy_n_hold', 'buy_d01_gain', 'buy_d01_loss',
                                 'max_gain', 'max_loss',
                                 'max_loss_in_gl', 'max_loss_in_rtn']
-class OHLCSimpleStrategy(_OHLCBase):
+class OHLCSimpleStrategy(OHLCDataBase):
     """Applying a series of strategy on the input df.
     """
 
-    def __init__(self, df: pd.DataFrame, tick_col: str = Col.Date.name):
-        super().__init__(df, tick_col)
+    def __init__(self, data: OHLCData):
+        super().__init__(data)
 
         # Make sure the index is starting from 0
         self._df = self._df.reset_index(drop=True)
@@ -235,16 +231,15 @@ class OHLCSimpleStrategy(_OHLCBase):
         )
 
 
-class OHLCSeasonalityAnalyzer(_OHLCBase):
+class OHLCSeasonalityAnalyzer(OHLCDataBase):
 
     def __init__(
             self,
-            df: pd.DataFrame,
-            tick_col: str = Col.Date.name,
+            data: OHLCData,
             group_cols: list[DataSlicer._T_CAL_INFO_COLS] = ['Year', 'Month']
     ):
-        super().__init__(df, tick_col)
-        self.slicer = DataSlicer(df, tick_col=tick_col)
+        super().__init__(data)
+        self.slicer = DataSlicer(data)
 
         self.group_cols = group_cols
 
@@ -412,13 +407,13 @@ class OHLCSeasonalityAnalyzer(_OHLCBase):
         plt.show()
 
 
-class OHLCStreakAnalyzer(_OHLCBase):
+class OHLCStreakAnalyzer(OHLCDataBase):
 
     # TODO - add sanity check to make sure the columns have streak to analysis
     pass
 
 
-class OHLCVolatilityAnalyzer(_OHLCBase):
+class OHLCVolatilityAnalyzer(OHLCDataBase):
 
     # TODO - add sanity check to make sure the columns have streak to analysis
     pass
