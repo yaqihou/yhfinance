@@ -119,6 +119,13 @@ _STARC = _T_STARC(
     ColName('STARCDn', callback=indicator_callback),
     ColName('STARC', callback=indicator_callback),
 )
+
+_T_AWESOME_OSCILLATOR = namedtuple('SuperTrend', ['Fast', 'Slow', 'AO'])
+_AWESOME_OSCILLATOR = _T_AWESOME_OSCILLATOR(
+    ColName('SMAFast', callback=indicator_callback),
+    ColName('SMASlow', callback=indicator_callback),
+    ColName('AO', callback=indicator_callback),
+)
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
@@ -128,6 +135,8 @@ class ColInd:
     SMA = ColName('SMA', callback=indicator_callback)
     EMA = ColName('EMA', callback=indicator_callback)
     SMMA = ColName('SMMA', callback=indicator_callback)
+
+    AwesomeOscillator = _AWESOME_OSCILLATOR
 
     MACD = _MACD
     RSIWilder = _RSIWilder

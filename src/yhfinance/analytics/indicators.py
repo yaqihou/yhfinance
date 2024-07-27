@@ -21,8 +21,8 @@ __all__ = [
     'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
     'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
     'IndSupertrend',
-    'IndAroon'
-           ]
+    'IndAroon',
+    'IndAwesomeOscillator']
 
 # TODO - add plotter configs into each class so that could be used outside
 # TODO - add related indicators as class property
@@ -33,6 +33,7 @@ class _BaseIndicator(OHLCDataBase, abc.ABC):
 
     # TODO - need to implement for each indicator
     _category: str = "undefined"
+    _abbrev: str = 'undefined'
 
     def __init__(self, data: OHLCData):
         super().__init__(data)
@@ -50,6 +51,12 @@ class _BaseIndicator(OHLCDataBase, abc.ABC):
     @abc.abstractmethod
     def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
         """Return a list of panel definition returned by mpf.make_addplot"""
+
+    # TODO - return the final results as array / list of array
+    # @property
+    # def values(self) -> np.ndarray:
+    #     return
+    
 
     @property
     def need_new_panel_num(self) -> bool:
@@ -887,3 +894,73 @@ class IndAroon(_RollingMixin, _BaseIndicator):
             )
         ]
         
+
+class IndAwesomeOscillator(_BaseIndicator):
+    """The Awesome Oscillator is an indicator used to measure market
+    momentum. AO calculates the difference of a 34 Period and 5 Period
+    Simple Moving Averages. The Simple Moving Averages that are used are
+    not calculated using closing price but rather each bar's midpoints. AO
+    is generally used to affirm trends or to anticipate possible reversals.
+
+    """
+    
+
+    def __init__(
+            self,
+            data          : OHLCData,
+            period_fast   : int           = 5,
+            period_slow   : int           = 34,
+    ):
+        """
+        period: for SMA, usually between 5 and 10
+        multiplier: for ATR scale, commonly take to be 2
+        """
+        self.period_fast = period_fast
+        self.period_slow = period_slow
+        super().__init__(data)
+
+    def _calc(self) -> pd.DataFrame:
+
+        self._sma_fast = IndSMA(self._data, self.period_fast)
+        _sma_fast_val = self._sma_fast.df[Col.Ind.SMA(self.period_fast)].values
+
+        self._sma_slow = IndSMA(self._data, self.period_slow)
+        _sma_slow_val = self._sma_slow.df[Col.Ind.SMA(self.period_slow)].values
+
+        _df = self._df[[self.tick_col]].copy()
+        _df[Col.Ind.AwesomeOscillator.Fast(self.period_fast)] = _sma_fast_val
+        _df[Col.Ind.AwesomeOscillator.Slow(self.period_slow)] = _sma_slow_val
+        _df[Col.Ind.AwesomeOscillator.AO(self.period_fast, self.period_slow)] = \
+            _sma_fast_val - _sma_slow_val
+
+        return _df
+
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     with_sma: bool = False,
+                     **kwargs) -> list[dict]:
+        kwargs = {
+            'label': Col.Ind.AwesomeOscillator.AO(self.period_fast, self.period_slow),
+            'secondary_y': False,
+            'panel': plotter_args['new_panel_num']
+        }
+
+        ret = [mpf.make_addplot(
+            self.df[Col.Ind.AwesomeOscillator.AO(self.period_fast, self.period_slow)],
+            **kwargs)]
+
+        if with_sma:
+            # Ensure we have the same size
+            self._sma_fast._df = self._sma_fast._df.merge(
+                self.df[[self.tick_col]], how='inner', on=self.tick_col)
+            self._sma_slow._df = self._sma_fast._df.merge(
+                self.df[[self.tick_col]], how='inner', on=self.tick_col)
+            ret += self._sma_fast.make_addplot(plotter_args)
+            ret += self._sma_slow.make_addplot(plotter_args)
+        
+        return ret
+
