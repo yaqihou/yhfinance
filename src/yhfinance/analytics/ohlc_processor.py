@@ -218,22 +218,28 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
 
         return self
 
-    def add_all(self, add_rtn_col: bool = True):
-        """A shortcut to apply all additional features, not support customize result col name
-        """
-
-        return self.add_close_open_spread(add_rtn_col=add_rtn_col)\
-                   .add_open_close_return(add_rtn_col=add_rtn_col)\
+    def add_all_return(self, add_rtn_col: bool = True):
+        return self.add_open_close_return(add_rtn_col=add_rtn_col)\
                    .add_close_return(add_rtn_col=add_rtn_col)\
                    .add_open_return(add_rtn_col=add_rtn_col)\
                    .add_median_return(add_rtn_col=add_rtn_col)\
                    .add_typical_return(add_rtn_col=add_rtn_col)\
                    .add_average_return(add_rtn_col=add_rtn_col)\
-                   .add_close_gl_streak()\
+                   
+    def add_all_streak(self):
+        return self.add_close_gl_streak()\
                    .add_open_gl_streak()\
                    .add_median_gl_streak()\
                    .add_typical_gl_streak()\
                    .add_average_gl_streak()
+
+    def add_all(self, add_rtn_col: bool = True):
+        """A shortcut to apply all additional features, not support customize result col name
+        """
+
+        return self.add_close_open_spread(add_rtn_col=add_rtn_col)\
+                   .add_all_return(add_rtn_col=add_rtn_col)\
+                   .add_all_streak()
 
     @rectify(inter_tick_check=True)
     def add_close_open_spread(self, *, col_res=Col.Inter.CloseOpenSpread, add_rtn_col: bool = True):
