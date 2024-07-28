@@ -24,7 +24,9 @@ __all__ = [
     'IndSupertrend',
     'IndAroon',
     'IndAwesomeOscillator',
-    'IndBollingerBand'
+    'IndBollingerBand',
+    'IndBollingerBandModified',
+    'IndMoneyFlowIndex'
 ]
 
 # TODO - add plotter configs into each class so that could be used outside
@@ -86,9 +88,6 @@ class _BaseIndicator(_PriceColMixin, OHLCDataBase, abc.ABC):
         if drop_cols:
             self._df.drop(columns=drop_cols, inplace=True)
         self._df = self._df.merge(df, how='left', on=self.tick_col)
-
-    def __repr__(self) -> pd.DataFrame:
-        return self.df
 
 
 # -----------------------------------
@@ -325,23 +324,8 @@ class _IndRSI(_RollingMixin, _BaseIndicator):
     def _get_gl_for_rsi(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
         _inter_processor = OHLCInterProcessor(self._data, tick_offset=-1)
-        if self.price_col == Col.Close:
-            _inter_processor.add_close_return()
-            _col_res = Col.Inter.CloseReturn
-        elif self.price_col == Col.Open:
-            _inter_processor.add_open_return()
-            _col_res = Col.Inter.OpenReturn
-        elif self.price_col == Col.Median:
-            _inter_processor.add_median_return()
-            _col_res = Col.Inter.MedianReturn
-        elif self.price_col == Col.Typical:
-            _inter_processor.add_typical_return()
-            _col_res = Col.Inter.TypicalReturn
-        elif self.price_col == Col.Avg:
-            _inter_processor.add_average_return()
-            _col_res = Col.Inter.AvgReturn
-        else:
-            raise ValueError('Did not support given price col')
+        _inter_processor.add_all_return()
+        _col_res = Col.Inter.get_return_col(self.price_col)
             
         _df = _inter_processor.get_result()
         _df = _df[[self.tick_col, _col_res.gl]].copy()
@@ -460,12 +444,10 @@ class IndCutlerRSI(_IndRSI):
 
 class IndTrueRange(_BaseIndicator):
 
-    def __init__(
-            self,
-            data   : OHLCData,
-    ):
-    
-        super().__init__(data)
+    def __init__(self,
+                 data: OHLCData,
+                 price_col: ColName = Col.Close):
+        super().__init__(data, price_col=price_col)
 
     def _calc(self) -> pd.DataFrame:
         _df = OHLCInterProcessor(self._data, tick_offset=-1)._df_offset
@@ -504,7 +486,7 @@ class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
         # initial condition is ATR_0 = mean(sum(TR_n))
         period = self.period
 
-        ind_tr = IndTrueRange(self._data, period)
+        ind_tr = IndTrueRange(self._data, price_col=self.price_col)
         _df = ind_tr.get_result()
 
         _tr = _df[Col.Ind.TrueRange.name].copy()
@@ -994,6 +976,7 @@ class IndAwesomeOscillator(_BaseIndicator):
             data          : OHLCData,
             period_fast   : int           = 5,
             period_slow   : int           = 34,
+            price_col     : ColName       = Col.Close,
     ):
         """
         period: for SMA, usually between 5 and 10
@@ -1001,14 +984,14 @@ class IndAwesomeOscillator(_BaseIndicator):
         """
         self.period_fast = period_fast
         self.period_slow = period_slow
-        super().__init__(data)
+        super().__init__(data, price_col=price_col)
 
     def _calc(self) -> pd.DataFrame:
 
-        self._sma_fast = IndSMA(self._data, self.period_fast)
+        self._sma_fast = IndSMA(self._data, self.period_fast, price_col=self.price_col)
         _sma_fast_val = self._sma_fast.df[Col.Ind.SMA(self.period_fast)].values
 
-        self._sma_slow = IndSMA(self._data, self.period_slow)
+        self._sma_slow = IndSMA(self._data, self.period_slow, price_col=self.price_col)
         _sma_slow_val = self._sma_slow.df[Col.Ind.SMA(self.period_slow)].values
 
         _df = self._df[[self.tick_col]].copy()
@@ -1062,26 +1045,30 @@ class IndBollingerBand(_RollingMixin, _BandMixin, _BaseIndicator):
 
     """
     
-
     def __init__(
             self,
             data          : OHLCData,
             period        : int           = 20,
             multiplier    : int           = 2,
             multiplier_dn : Optional[int] = None,
+            price_col     : ColName       = Col.Close
     ):
         """
         period: for SMA, usually between 5 and 10
-        multiplier: for ATR scale, commonly take to be 2
+        multiplier: for std scale, commonly take to be 2
         """
-        super().__init__(data, period=period, multiplier=multiplier, multiplier_dn=multiplier_dn)
+        super().__init__(data,
+                         period=period,
+                         multiplier=multiplier,
+                         multiplier_dn=multiplier_dn,
+                         price_col=price_col)
 
     def _calc(self) -> pd.DataFrame:
 
-        self._sma = IndSMA(self._data, self.period)
+        self._sma = IndSMA(self._data, self.period, price_col=self.price_col)
         _sma_val = self._sma.df[Col.Ind.SMA(self.period)].values
 
-        self._std = self.df[Col.Close.name].rolling(self.period).std()
+        self._std = self.df[self.price_col].rolling(self.period).std()
         _std_val = self._std.values
 
         _df = self._df[[self.tick_col]].copy()
@@ -1124,4 +1111,175 @@ class IndBollingerBand(_RollingMixin, _BandMixin, _BaseIndicator):
 
         return [
             mpf.make_addplot(self.df[Col.Ind.BollingerBand.SMA(self.period)], **kwargs)
+        ]
+
+
+# TODO - need to support log return
+class IndBollingerBandModified(IndBollingerBand):
+    """The only difference between ordinary BollingerBand is that the std is calculated
+    based on the past n periods relative return 
+    """
+    
+    def __init__(
+            self,
+            data          : OHLCData,
+            period        : int           = 20,
+            multiplier    : int           = 2,
+            multiplier_dn : Optional[int] = None,
+            price_col     : ColName       = Col.Close
+    ):
+        """
+        period: for SMA, usually between 5 and 10
+        multiplier: for std scale, commonly take to be 2
+        """
+        super().__init__(data,
+                         period=period,
+                         multiplier=multiplier,
+                         multiplier_dn=multiplier_dn,
+                         price_col=price_col)
+
+
+    def _calc(self) -> pd.DataFrame:
+
+        self._sma = IndSMA(self._data, self.period, price_col=self.price_col)
+        _sma_val = self._sma.df[Col.Ind.SMA(self.period)].values
+
+        _inter_processor = OHLCInterProcessor(self._data)
+        _inter_processor.add_all_return()
+        _df_inter = _inter_processor.get_result()
+        _rtn_col = Col.Inter.get_return_col(self.price_col)
+        _df_inter['RtnStd'] = _df_inter[_rtn_col.rtn].rolling(self.period).std()
+
+        _df = self._df[[self.tick_col]].copy()
+        _df = _df.merge(_df_inter[[self.tick_col, 'RtnStd']], how='left', on=self.tick_col)
+
+        _df[Col.Ind.BollingerBandModified.SMA(self.period)] = _sma_val
+        _df[Col.Ind.BollingerBandModified.Std(self.period)] = (
+            self._df[self.price_col] * 0.01 * _df['RtnStd'])
+        _std_val = _df[Col.Ind.BollingerBandModified.Std(self.period)].values
+
+        _col_up = Col.Ind.BollingerBandModified.Up(self.period, self._multi_up)
+        _col_dn = Col.Ind.BollingerBandModified.Dn(self.period, self._multi_dn)
+        _df[_col_up] = _sma_val + self._multi_up * _std_val
+        _df[_col_dn] = _sma_val - self._multi_dn * _std_val
+
+        return _df
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        args = (self._multi_up,) if self._multi_up == self._multi_dn else (self._multi_up, self._multi_dn)
+        kwargs = {
+            'label': Col.Ind.BollingerBandModified.BB(self.period, *args),
+            'secondary_y': False,
+            'fill_between': {
+                'y1': self.df[Col.Ind.BollingerBandModified.Up(self.period, self._multi_up)].values,
+                'y2': self.df[Col.Ind.BollingerBandModified.Dn(self.period, self._multi_dn)].values,
+                'alpha': 0.3,
+                'color': 'dimgray',
+            }
+        }
+
+        return [
+            mpf.make_addplot(self.df[Col.Ind.BollingerBandModified.SMA(self.period)], **kwargs)
+        ]
+
+
+class IndMoneyFlowIndex(_RollingMixin, _BaseIndicator):
+    """The Money Flow Index (MFI) is a technical oscillator that uses
+    price and volume data for identifying overbought or oversold signals in
+    an asset. It can also be used to spot divergences which warn of a trend
+    change in price. The oscillator moves between 0 and 100.
+
+    The Money Flow Index (MFI) is a technical indicator that generates
+    overbought or oversold signals using both prices and volume data.
+
+    An MFI reading above 80 is considered overbought and an MFI reading
+    below 20 is considered oversold, although levels of 90 and 10 are also
+    used as thresholds.
+
+    A divergence between the indicator and price is noteworthy. For
+    example, if the indicator is rising while the price is falling or flat,
+    the price could start rising.
+
+    """
+    
+    def __init__(
+            self,
+            data          : OHLCData,
+            period        : int           = 14,
+            price_col     : ColName       = Col.Typical
+    ):
+        super().__init__(data,
+                         period=period,
+                         price_col=price_col)
+
+
+    def _calc(self) -> pd.DataFrame:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        flows =  (self._df[self.price_col] * self._df[Col.Vol]).values
+        _df[Col.Ind.MFI.Flow.name] = flows
+
+        prices = self._df[self.price_col].values
+
+        pos = 0.
+        neg = 0.
+        pos_vals = np.full((len(flows), ), np.nan)
+        neg_vals = np.full((len(flows), ), np.nan)
+        for idx, flow in enumerate(flows[1:self.period+1], 1):
+            if prices[idx] > prices[idx] - 1:
+                pos += flow
+            else:
+                neg += flow
+            pos_vals[idx] = pos
+            neg_vals[idx] = neg
+
+        for idx, flow in enumerate(flows[self.period+1:], self.period+1):
+
+            prev_idx = idx - self.period
+            # Remove the contribution from out-of-window sample
+            if prices[prev_idx] > prices[prev_idx-1]:
+                pos -= flows[prev_idx]
+            else:
+                neg -= flows[prev_idx]
+
+            # Add the contribution from newly added sample
+            if prices[idx] > prices[idx-1]:
+                pos += flow
+            else:
+                neg += flow
+
+            pos_vals[idx] = pos
+            neg_vals[idx] = neg
+
+        with np.errstate(divide='ignore'):
+            ratios = np.divide(pos_vals, neg_vals)
+        _df[Col.Ind.MFI.Pos(self.period)] = pos_vals
+        _df[Col.Ind.MFI.Neg(self.period)] = neg_vals
+        _df[Col.Ind.MFI.Ratio(self.period)] = ratios
+        _df[Col.Ind.MFI.MFI(self.period)] = 100 - (100 / (1 + ratios))
+
+        return _df
+
+    @property
+    def values(self) -> ArrayLike | dict[str, ArrayLike] | list[ArrayLike] | tuple[ArrayLike, ...]:
+        return self._df[Col.Ind.MFI.MFI].values
+    
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.MFI.MFI(self.period)],
+                type='line', panel=plotter_args['new_panel_num'],
+                label=Col.Ind.MFI.MFI(self.period)
+            )
         ]
