@@ -1,4 +1,5 @@
 
+from copy import deepcopy
 from functools import wraps
 from typing import Literal, Union, Optional, get_args
 
@@ -37,7 +38,11 @@ class DataSlicer(OHLCDataBase):
         self._preset_weekday  = weekday
         self._preset_weeknum  = weeknum
 
-    def __call__(self, obj: OHLCDataBase | pd.DataFrame) -> Optional[pd.DataFrame]:
+    def __call__(
+            self,
+            obj: OHLCDataBase | pd.DataFrame,
+            inplace: bool = False
+    ) -> Optional[pd.DataFrame | OHLCDataBase]:
 
         if isinstance(obj, pd.DataFrame):
             _trg_df = obj
@@ -63,7 +68,12 @@ class DataSlicer(OHLCDataBase):
         if isinstance(obj, pd.DataFrame):
             return df_slice
         elif isinstance(obj, OHLCDataBase):
-            obj._df = df_slice
+            if inplace:
+                obj._df = df_slice
+            else:
+                new_obj = deepcopy(obj)
+                new_obj._df = df_slice
+                return new_obj
 
     def _parse_calendar_info(self):
 
