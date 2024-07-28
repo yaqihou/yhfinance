@@ -53,3 +53,26 @@ class ColName:
     def __repr__(self) -> str:
         return self.name
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+
+class ColBase:
+
+    Date     = ColName('Date')
+    Datetime = ColName('Datetime')
+
+    Open     = ColName('Open')
+    High     = ColName('High')
+    Low      = ColName('Low')
+    Close    = ColName('Close')
+    Median   = ColName('MedianHL')
+    Typical  = ColName('TypicalHLC')
+    Avg      = ColName('AvgOHLC')
+
+    Vol      = ColName('Volume')
+
+    OHLC: tuple[str, ...] = (Open.name, High.name, Low.name, Close.name)
+
+    All_PRICE: tuple[str, ...] = (*OHLC, Median.name, Typical.name, Avg.name)
+    All_PRICE_WITH_VOL: tuple[str, ...] = (*OHLC, Median.name, Typical.name, Avg.name, Vol.name)

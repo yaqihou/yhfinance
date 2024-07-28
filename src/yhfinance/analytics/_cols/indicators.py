@@ -10,10 +10,15 @@ _MACD = _T_MACD(
     ColName('MACDSignal'))
 
 def indicator_callback(self, *args, **kwargs):
+    if len(args) + len(kwargs) == 0:
+        return self.name
+
+    # print('Callback:', self.name, args, kwargs)
     return (self.name
             + f"({','.join(map(str, args))})"
             + ' '.join([f"{k}_{v}" for k, v in kwargs])
             )
+
 _T_RSI = namedtuple('RSI', ['AvgGain', 'AvgLoss', 'RS', 'RSI'])
 _RSIWilder = _T_RSI(
     ColName('WilderRSIAvgGain', callback=indicator_callback),
@@ -70,6 +75,22 @@ _BOLLINGER_BAND = _T_BOLLINGER_BAND(
     ColName('BBDn', callback=indicator_callback),
     ColName('BollingerBand', callback=indicator_callback),
 )
+_BOLLINGER_BAND_MOD = _T_BOLLINGER_BAND(
+    ColName('BBM-SMA', callback=indicator_callback),
+    ColName('BBM-Std', callback=indicator_callback),
+    ColName('BBMUp', callback=indicator_callback),
+    ColName('BBMDn', callback=indicator_callback),
+    ColName('BollingerBandModified', callback=indicator_callback),
+)
+
+_T_MFI = namedtuple('MoneyFlowIndex', ['Flow', 'Pos', 'Neg', 'Ratio', 'MFI'])
+_MFI = _T_MFI(
+    ColName('MFI-Flow', callback=indicator_callback),
+    ColName('MFI-PosFlow', callback=indicator_callback),
+    ColName('MFI-NegFlow', callback=indicator_callback),
+    ColName('MFI-Ratio', callback=indicator_callback),
+    ColName('MFI', callback=indicator_callback)
+)
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
@@ -82,6 +103,9 @@ class ColInd:
 
     AwesomeOscillator = _AWESOME_OSCILLATOR
     BollingerBand = _BOLLINGER_BAND
+    BollingerBandModified = _BOLLINGER_BAND_MOD
+
+    MFI = _MFI
 
     MACD = _MACD
     RSIWilder = _RSIWilder
