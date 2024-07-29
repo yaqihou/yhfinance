@@ -7,7 +7,7 @@ task_preset_factory = TaskPreset()
 
 etf_tickers = ['TQQQ', 'SQQQ', 'QQQ',
                'FAS', 'FAZ',
-               'BOIL',
+               'BOIL', 'KOLD',
                'SOXX', 'USD',
                'SPY', 'IVV',
                'NVDL', 'NVDX', 'NVD', 'NVDQ',
