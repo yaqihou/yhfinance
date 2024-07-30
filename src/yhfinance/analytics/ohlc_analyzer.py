@@ -1,5 +1,7 @@
 
+from contextlib import contextmanager
 
+from collections import namedtuple
 from dataclasses import dataclass
 from typing import Literal, get_args, Optional
 
@@ -50,59 +52,82 @@ class SimpleStratRes:
 _T_VALID_SIMPLE_STRAT = Literal['buy_n_hold', 'buy_d01_gain', 'buy_d01_loss',
                                 'max_gain', 'max_loss',
                                 'max_loss_in_gl', 'max_loss_in_rtn']
+TradingMat = namedtuple('TradingMat', ["Buy", "Sell", "Gl", 'Rtn'])
 class OHLCSimpleStrategy(OHLCDataBase):
     """Applying a series of strategy on the input df.
     """
 
-    def __init__(self, data: OHLCData):
+    def __init__(self,
+                 data: OHLCData,
+                 trading_cooldown: int = 1, # wait for at least one day
+                 *,
+                 cache_trading_matrix: bool = False
+                 ):
         super().__init__(data)
 
         # Make sure the index is starting from 0
         self._df = self._df.reset_index(drop=True)
+        self.trading_cooldown: int = trading_cooldown
 
-        _df = self._df[[self.tick_col] + list(Col.OHLC)].set_index(self.tick_col)
+        # _df = self._df[[self.tick_col] + list(Col.OHLC)].set_index(self.tick_col)
 
-        self._df_rolling_min = _df\
-                               .rolling(len(self._df), min_periods=1).min()\
-                               .reset_index()\
-                               .rename(columns={
-                                   x: x+"RollingMin" for x in Col.OHLC
-                               })
-        self._df_rolling_max = _df\
-                               .rolling(len(self._df), min_periods=1).max()\
-                               .reset_index()\
-                               .rename(columns={
-                                   x: x+"RollingMax" for x in Col.OHLC
-                               })
+        # NOTE - For the most general case, we should create a matrix
+        #  lazily for each buy at price and sell at price. The 2D matrix
+        #  (i, j) will represent the gain / return if buy at i sell at j
+        #  hence it will be an upper triangular matrix. This is slow, but
+        #  could be easily implemetned and support any "cooldown" period by
+        # mask off the off diagonal row
+        # Useful for debug or further analysis
+        self.cache_trading_matrix = cache_trading_matrix
+        self._trading_matrix_cache = {}
 
-        self._df_rolling = self._df_rolling_min.merge(
-            self._df_rolling_max, on=self.tick_col
-        )
-        self._df_rolling = self._df_rolling.merge(_df.reset_index(), on=self.tick_col).reset_index(drop=True)
+    # def _lazy_create_trading_matrix(self, buy_at: ColName | float, sell_at: ColName | float):
+    def _create_trading_matrix(self, buy_at: ColName | float, sell_at: ColName | float):
+        _key_buy = buy_at if isinstance(buy_at, (ColName, str)) else None
+        _key_sell = sell_at if isinstance(sell_at, (ColName, str)) else None
+        _key = (_key_buy, _key_sell, self.trading_cooldown)
 
-    def _get_gl_rtn(self, buy_at: str | float, sell_at: str | float):
+        if _key in self._trading_matrix_cache:
+            return self._trading_matrix_cache[_key]
 
-        _df = pd.DataFrame(columns=['Buy', 'Sell', 'Gl', 'Rtn'])
-        if isinstance(buy_at, (int, float)):
-            _df['Buy'] = [buy_at] * len(self._df)
-        else:
-            _df['Buy'] = self._df_rolling[buy_at]
+        sz = len(self._df)
 
-        if isinstance(sell_at, (int, float)):
-            _df['Sell'] = [sell_at] * len(self._df)
-        else:
-            _df['Sell'] = self._df_rolling[sell_at]
+        # Will still create a matrix for constant just to be consistent in form
+        buy_vec = np.full(sz, buy_at) if _key_buy is None else self.df[buy_at]
+        sell_vec = np.full(sz, sell_at) if _key_sell is None else self.df[sell_at]
 
-        _df['Gl'] = _df['Sell'] - _df['Buy']
-        _df['Rtn'] = _df['Gl'] / _df['Buy'] * 100
+        # buy mat has the same value at the same row
+        buy_mat = np.repeat( np.atleast_2d(buy_vec).T, sz, axis=1 )
+        # sell mat has the same value at the same col
+        sell_mat = np.repeat( np.atleast_2d(sell_vec), sz, axis=0 )
 
-        # Debug
-        # assert _df['Gl'].argmax() == _df['Rtn'].argmax()
-        # NOTE - If using rollingMax, like when calculating max loss, this is not guaranteed
-        # assert _df['Gl'].argmin() == _df['Rtn'].argmin()
+        gl_mat = sell_mat - buy_mat
+        # By default tril_indices will include the main diagonal, i.e. when
+        # trading_cooldown = 0, we want to include the same-day trading (at
+        # the main diagonal), so that we need to take the -1 offset
+        gl_mat[np.tril_indices(sz, self.trading_cooldown-1)] = np.nan
+        rtn_mat = gl_mat / buy_mat * 100
 
-        return _df
+        ret = TradingMat(Buy=buy_mat, Sell=sell_mat, Gl=gl_mat, Rtn=rtn_mat)
+        if self.cache_trading_matrix:
+            self._trading_matrix_cache[_key] = ret
+        return ret
 
+    @contextmanager
+    def override_params(
+            self,
+            trading_cooldown: Optional[int] = None # wait for at least one day
+    ):
+        # Setup
+        default_trading_colldown = self.trading_cooldown
+        self.trading_cooldown = trading_cooldown or self.trading_cooldown
+
+        yield self
+
+        # Tear down
+        self.trading_cooldown = default_trading_colldown
+
+        
     def buy_and_hold(
             self,
             buy_at_col: ColName = Col.Open,
@@ -110,18 +135,13 @@ class OHLCSimpleStrategy(OHLCDataBase):
         """Retrun the Gl/Rtn if buy at first day and hold until the last day
         """
 
-        _df = self._get_gl_rtn(
-            buy_at=self._df.iloc[0, :].loc[buy_at_col.name],
-            sell_at=self._df.iloc[-1, :].loc[sell_at_col.name],
-        )
+        buy_at=self._df.iloc[0, :].loc[buy_at_col.name]
+        sell_at=self._df.iloc[-1, :].loc[sell_at_col.name]
 
-        assert len(_df['Gl'].unique()) == 1
-        assert len(_df['Rtn'].unique()) == 1
-        
-        _gl = _df.iloc[0, 2]
-        _rtn = _df.iloc[0, 3]
+        _gl = sell_at - buy_at
+        _rtn = _gl / buy_at * 100
         _buy_day = 0
-        _sell_day = len(_df) - 1
+        _sell_day = len(self._df) - 1
 
         return SimpleStratRes(
             gl=_gl,
@@ -138,20 +158,20 @@ class OHLCSimpleStrategy(OHLCDataBase):
             result_type: Literal['gain', 'loss'] = 'gain'):
         """Return the gain/loss if buy at the first day"""
 
-        _df = self._get_gl_rtn(
+        tmat = self._create_trading_matrix(
             buy_at=self._df.iloc[0, :].loc[buy_at_col.name],
-            sell_at=sell_at_col.name)
-
+            sell_at=sell_at_col
+        )
         _buy_day = 0
         if result_type == 'gain':
             # Since 
-            _gl = _df['Gl'].max()
-            _rtn = _df['Rtn'].max()
-            _sell_day = _df['Gl'].argmax()
+            _gl = np.nanmax(tmat.Gl[_buy_day])
+            _rtn = np.nanmax(tmat.Rtn[_buy_day])
+            _sell_day = np.nanargmax(tmat.Gl[_buy_day])
         else:
-            _gl = _df['Gl'].min()
-            _rtn = _df['Rtn'].min()
-            _sell_day = _df['Gl'].argmin()
+            _gl = np.nanmin(tmat.Gl[_buy_day])
+            _rtn = np.nanmin(tmat.Rtn[_buy_day])
+            _sell_day = np.nanargmin(tmat.Gl[_buy_day])
 
         return SimpleStratRes(
             gl=_gl,
@@ -161,71 +181,56 @@ class OHLCSimpleStrategy(OHLCDataBase):
             name = f'BuyD01{result_type.capitalize()}+{buy_at_col.name}-{sell_at_col.name}'
         )
 
-    def _infer_buy_day(self,
-                       df_gl_rtn: pd.DataFrame,
-                       sell_day: int,
-                       buy_at: str):
-
-        # In df_gl_rtn, Buy column is the actual price, which could be a constant or a rolling 
-        _buy_day = self._df_rolling[self._df_rolling[buy_at] == df_gl_rtn.iloc[sell_day, 0]].index[0]
-        return _buy_day
-
     def max_gain(self,
-                 buy_at_col: ColName = Col.Low,  # Could also be Close / Open
-                 sell_at_col: ColName = Col.High,
-                 allow_intraday_trading: bool = False,  # TODO - if buy and high could happen at the same day
-                 return_raw: bool = False
+                 buy_at: ColName = Col.Low,  # Could also be Close / Open
+                 sell_at: ColName = Col.High,
                  ):
         """Return the max possible gain during this period, note that max
         gain could happen differently from the max return"""
 
-        _buy_at = buy_at_col.name + 'RollingMin'
-        _df = self._get_gl_rtn(buy_at=_buy_at, sell_at=sell_at_col.name)
-        if return_raw:
-            return _df
+        tmat = self._create_trading_matrix(
+            buy_at=buy_at,
+            sell_at=sell_at
+        )
 
-        _gl = _df['Gl'].max()
-        _rtn = _df['Rtn'].max()
-        _sell_day = _df['Gl'].argmax()
-        _buy_day = self._infer_buy_day(_df, _sell_day, _buy_at)
+        _gl = np.nanmax(tmat.Gl)
+        _rtn = np.nanmax(tmat.Rtn)
+        _buy_day, _sell_day = np.unravel_index(np.nanargmax(tmat.Gl), tmat.Gl.shape)
 
         return SimpleStratRes(
             gl=_gl,
             rtn = _rtn,
             buy_day = _buy_day,
             sell_day = _sell_day,
-            name = f'MaxGain+{buy_at_col.name}-{sell_at_col.name}'
+            name = f'MaxGain+{buy_at.name}-{sell_at.name}'
         )
 
     def max_loss(self,
-                 buy_at_col: ColName = Col.High,
-                 sell_at_col: ColName = Col.Low,
-                 allow_intraday_trading: bool = False,  # TODO - if buy and high could happen at the same day
+                 buy_at: ColName = Col.High,
+                 sell_at: ColName = Col.Low,
                  # The min rtn could be different from min gl as the ref buy price is rollingMax
                  measure_type: Literal['gl', 'rtn'] = 'gl',
-                 return_raw: bool = False):
+                 ):
         """Return the max possible loss during this period"""
-        _buy_at = buy_at_col.name + 'RollingMax'
-        _df = self._get_gl_rtn(buy_at=_buy_at, sell_at=sell_at_col.name)
-        if return_raw:
-            return _df
+
+        tmat = self._create_trading_matrix(
+            buy_at=buy_at,
+            sell_at=sell_at
+        )
 
         if measure_type == 'gl':
-            _gl = _df['Gl'].min()
-            _sell_day = _df['Gl'].argmin()
-            _rtn = _df.iloc[_sell_day, :].loc['Rtn']
-        else:
-            _rtn = _df['Rtn'].min()
-            _sell_day = _df['Gl'].argmin()
-            _gl = _df.iloc[_sell_day, :].loc['Gl']
-        _buy_day = self._infer_buy_day(_df, _sell_day, _buy_at)
+            _buy_day, _sell_day = np.unravel_index(np.nanargmin(tmat.Gl), tmat.Gl.shape)
+        elif measure_type == 'rtn':
+            _buy_day, _sell_day = np.unravel_index(np.nanargmin(tmat.Rtn), tmat.Rtn.shape)
+        _gl = tmat.Gl[_buy_day, _sell_day]
+        _rtn = tmat.Rtn[_buy_day, _sell_day]
 
         return SimpleStratRes(
             gl=_gl,
             rtn = _rtn,
             buy_day = _buy_day,
             sell_day = _sell_day,
-            name = f'MaxLoss{measure_type.capitalize()}+{buy_at_col.name}-{sell_at_col.name}'
+            name = f'MaxLoss{measure_type.capitalize()}+{buy_at.name}-{sell_at.name}'
         )
 
 
@@ -282,7 +287,10 @@ class OHLCSeasonalityAnalyzer(OHLCDataBase):
             _df_slice = _df_slice.reset_index(drop=True)
             _data_dict['_key'].append(_key)
 
-            strat = OHLCSimpleStrategy(_df_slice)
+            _data = self._data.copy()
+            _data.override_with(_df_slice)
+
+            strat = OHLCSimpleStrategy(_data)
 
             buy_n_hold_res      = strat.buy_and_hold()
             buyd01_max_gain_res = strat.buy_at_first_day(result_type='gain')
