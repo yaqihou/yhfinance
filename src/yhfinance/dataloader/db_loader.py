@@ -1,5 +1,6 @@
 
 import abc
+import warnings
 from typing import Literal, Optional, Union, get_args
 from collections.abc import Iterable
 
@@ -95,6 +96,9 @@ class BaseLoader(abc.ABC):
         # Apply datatype
         df['Datetime'] = df['Datetime'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d %H:%M:%S%z'))
         df['Date'] = df['Date'].apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%d'))
+
+        if df.duplicated().sum() > 0:
+            warnings.warn("There are duplicated entries loaded from the database, please check the source")
             
         return df
         
