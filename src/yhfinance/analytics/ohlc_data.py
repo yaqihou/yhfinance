@@ -39,6 +39,9 @@ class OHLCData:
     def copy(self):
         return deepcopy(self)
 
+    def override_with(self, df: pd.DataFrame):
+        self.df = df
+
     def __add__(self, obj):
 
         if isinstance(obj, pd.DataFrame):
