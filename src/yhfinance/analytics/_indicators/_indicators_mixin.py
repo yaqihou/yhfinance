@@ -1,6 +1,8 @@
 
+import warnings
 from typing import Optional
-from .ohlc_cols import Col, ColIntra, ColName, _T_RSI
+
+from ..ohlc_cols import Col, ColName
 
 __all__ = [
     '_BandMixin',
@@ -47,7 +49,10 @@ class _PriceColMixin:
         elif isinstance(price_col, ColName):
             _price_col = price_col
         else:
-            raise ValueError(f'price_col should be a str or ColName instance: {price_col.__class__.__name__}')
+            print(type(price_col), id(price_col.__class__))
+            print(ColName, id(ColName))
+            print(type(price_col) is ColName)
+            warnings.warn(f'price_col should be a str or ColName instance: {price_col.__class__.__name__}, {isinstance(price_col, ColName)}')
 
         assert price_col in Col.All_PRICE
         
