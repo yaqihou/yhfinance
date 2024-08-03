@@ -110,6 +110,7 @@ class DataSlicer(OHLCDataBase):
             weekday: Optional[int] = None,
             weeknum: Optional[int] = None,
             copy: bool = True,
+            reset_index: bool = True
             # ignore_calendar_info: bool = True
     ):
         """Return (a copy of) the slice from df falling in the given time window 
@@ -133,7 +134,11 @@ class DataSlicer(OHLCDataBase):
         selected_index = self._df_calendar[mask].index
 
         df_target = df if df is not None else self._df
-        ret = df_target.loc[selected_index, :].reset_index(drop=True)
+
+        ret = df_target.loc[selected_index, :]
+        if reset_index:
+            ret = ret.reset_index(drop=True)
+
         return ret.copy() if copy else ret
 
     @property
