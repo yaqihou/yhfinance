@@ -7,7 +7,7 @@ from ._indicators.momentum_oscillator import IndAwesomeOscillator, IndMACD, IndW
 from ._indicators.moving_average_band import IndAvgTrueRange, IndATRBand, IndBollingerBand, IndBollingerBandModified, IndStarcBand
 from ._indicators.trend import IndAroon, IndSupertrend
 from ._indicators.volatility import IndTrueRange
-from ._indicators.volume import IndMoneyFlowIndex
+from ._indicators.volume import IndMoneyFlowIndex, IndAccumulationDistribution, IndOnBalanceVolume, IndMarketFacilitationIndex
 
 
 __all__ = [
@@ -20,7 +20,8 @@ __all__ = [
     'IndAwesomeOscillator',
     'IndBollingerBand',
     'IndBollingerBandModified',
-    'IndMoneyFlowIndex'
+    # Volume
+    'IndMoneyFlowIndex', 'IndAccumulationDistribution', 'IndOnBalanceVolume', 'IndMarketFacilitationIndex'
 ]
 
 # TODO - add plotter configs into each class so that could be used outside

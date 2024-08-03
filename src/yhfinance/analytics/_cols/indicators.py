@@ -83,14 +83,30 @@ _BOLLINGER_BAND_MOD = _T_BOLLINGER_BAND(
     ColName('BollingerBandModified', callback=indicator_callback),
 )
 
-_T_MFI = namedtuple('MoneyFlowIndex', ['Flow', 'Pos', 'Neg', 'Ratio', 'MFI'])
-_MFI = _T_MFI(
+_T_MFlowI = namedtuple('MoneyFlowIndex', ['Flow', 'Pos', 'Neg', 'Ratio', 'MFI'])
+_MFlowI = _T_MFlowI(
     ColName('MFI-Flow', callback=indicator_callback),
     ColName('MFI-PosFlow', callback=indicator_callback),
     ColName('MFI-NegFlow', callback=indicator_callback),
     ColName('MFI-Ratio', callback=indicator_callback),
     ColName('MFI', callback=indicator_callback)
 )
+
+_T_ACC_DIS = namedtuple('AccumulationDistribution', ['MFM', 'MFV', 'AD'])
+_ACC_DIS = _T_ACC_DIS(
+    ColName('AD-MFM'),
+    ColName('AD-MFV'),
+    ColName('AD'),
+)
+
+_T_MFacI = namedtuple('MarketFacilitationIndex', ['MFacI', 'DeltaMFacI', 'DeltaVol', 'Status'])
+_MFacI = _T_MFacI(
+    ColName('MFacI'),
+    ColName('DeltaMFacI'),
+    ColName('DeltaVol'),
+    ColName('MFacIStatus')
+)
+
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
@@ -105,7 +121,7 @@ class ColInd:
     BollingerBand = _BOLLINGER_BAND
     BollingerBandModified = _BOLLINGER_BAND_MOD
 
-    MFI = _MFI
+    MFlowI = _MFlowI
 
     MACD = _MACD
     RSIWilder = _RSIWilder
@@ -119,3 +135,6 @@ class ColInd:
     SuperTrend = _SUPERTREND
     STARC = _STARC
     
+    OBV = ColName('OBV')
+    AD = _ACC_DIS
+    MFacI = _MFacI
