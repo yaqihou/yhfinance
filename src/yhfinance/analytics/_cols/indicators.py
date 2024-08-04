@@ -107,6 +107,12 @@ _MFacI = _T_MFacI(
     ColName('MFacIStatus')
 )
 
+_T_SPEARMAN = namedtuple('Spearman', ['SpearmanRCC', 'SpearmanSMA'])
+_Spearman = _T_SPEARMAN(
+    ColName('Spearman', callback=indicator_callback),
+    ColName('SpearmanSMA', callback=indicator_callback),
+)
+
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
@@ -138,3 +144,5 @@ class ColInd:
     OBV = ColName('OBV')
     AD = _ACC_DIS
     MFacI = _MFacI
+
+    Spearman = _Spearman

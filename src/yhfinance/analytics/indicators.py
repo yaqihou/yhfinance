@@ -3,7 +3,7 @@ from typing import Literal
 
 from ._indicators._base import _BaseIndicator
 from ._indicators.basics import IndEMA, IndSMA, IndSMMA
-from ._indicators.momentum_oscillator import IndAwesomeOscillator, IndMACD, IndWilderRSI, IndEmaRSI, IndCutlerRSI
+from ._indicators.momentum_oscillator import IndAwesomeOscillator, IndMACD, IndWilderRSI, IndEmaRSI, IndCutlerRSI, IndSpearman
 from ._indicators.moving_average_band import IndAvgTrueRange, IndATRBand, IndBollingerBand, IndBollingerBandModified, IndStarcBand
 from ._indicators.trend import IndAroon, IndSupertrend
 from ._indicators.volatility import IndTrueRange
@@ -11,13 +11,17 @@ from ._indicators.volume import IndMoneyFlowIndex, IndAccumulationDistribution, 
 
 
 __all__ = [
-    'IndSMA',
+    'IndSMA', 'IndEMA', 'IndSMMA',
+    # Momentum / Oscillator
+    'IndAwesomeOscillator',
     'IndMACD',
     'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
-    'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
+    'IndSpearman',
+    # Trend
     'IndSupertrend',
     'IndAroon',
-    'IndAwesomeOscillator',
+    # Moving Average / Band
+    'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
     'IndBollingerBand',
     'IndBollingerBandModified',
     # Volume

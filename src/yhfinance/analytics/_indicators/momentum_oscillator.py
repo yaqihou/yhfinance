@@ -2,6 +2,7 @@
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
+import scipy.stats as scipy_stats 
 
 import mplfinance as mpf
 
@@ -182,7 +183,8 @@ class IndMACD(_BaseIndicator):
         # Decreasing trend 
         histogram_fall = np.full_like(histogram, np.nan)
 
-        for idx, val in enumerate(histogram[1:]):
+        histogram_rise[0] = histogram[0]
+        for idx, val in enumerate(histogram[1:], 1):
             if val > histogram[idx-1]:
                 histogram_rise[idx] = histogram[idx]
             else:
@@ -365,3 +367,115 @@ class IndCutlerRSI(_IndRSI):
 
         return self._assign_rsi_result(_df)
 
+
+class IndSpearman(_RollingMixin, _BaseIndicator):
+    """The Spearman study is a technical indicator used for evaluation of
+    trend strength and turning point detection. This study calculates
+    Spearman's rank correlation coefficient in order to reveal correlation
+    between actual price changes and extremely strong trend. The Spearman
+    indicator registers two sets of data: prices of each bar during the
+    specified period in their chronological order and the same prices
+    sorted ascendingly. Spearman's ratio found for these two sets is then
+    multiplied by 100; value of +100 suggests strong correlation with
+    uptrend and -100, with downtrend.
+
+    Since the extreme values of -100 and +100 are rarely recorded, values
+    of +80 and -80 might be used as overbought and oversold levels
+    respectively. Plotting the Spearman indicator along with its short SMA
+    (e.g., three day SMA on daily charts) might give an idea when to expect
+    the turning points: look for the crossovers of the two plots. Useful
+    information can also be obtained by analyzing action of the indicator
+    in relation to zero level: crossing above the zero level might be an
+    opportunity for the Long Entry while falling below zero might suggest
+    the Short Exit.
+    """
+
+    def __init__(
+            self,
+            data: OHLCData,
+            price_col: ColName = Col.Close,
+            period: int = 7,
+            smoothing_period: int = 10
+    ):
+        self.smoothing_period = smoothing_period
+        super().__init__(data, price_col, period=period)
+
+    def _calc(self) -> pd.DataFrame:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        prices = self.df[self.price_col].values
+        spearman = np.full(len(_df), np.nan)
+
+        for idx in range(self.period, len(_df)+1):
+            # TODO - this is very inefficient. Could optimize
+            stat_res = scipy_stats.spearmanr(
+                prices[idx-self.period:idx],
+                np.sort(prices[idx-self.period:idx])
+            )
+            spearman[idx-1] = stat_res.statistic
+
+        _df[Col.Ind.Spearman.SpearmanRCC(self.period)] = spearman
+        _df[Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)] = (
+            _df[Col.Ind.Spearman.SpearmanRCC(self.period)].rolling(self.smoothing_period)\
+                                                          .mean()
+        )
+
+        return _df
+
+    @property
+    def values(self):
+        return self._df[Col.Ind.Spearman.SpearmanRCC(self.period)].values
+    
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        histogram = (self.df[Col.Ind.Spearman.SpearmanRCC(self.period)]
+                     - self.df[Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)]).values
+
+        histogram_color = ['#000000']
+        for idx, val in enumerate(histogram[1:], 1):
+            if val >= 0 and histogram[idx-1] < val:
+                histogram_color.append('#26A69A')
+                #print(i,'green')
+            elif val >= 0 and histogram[idx-1] > val:
+                histogram_color.append('#B2DFDB')
+                #print(i,'faint green')
+            elif val < 0 and histogram[idx-1] > val:
+                #print(i,'red')
+                histogram_color.append('#FF5252')
+            elif val < 0 and histogram[idx-1] < val:
+                #print(i,'faint red')
+                histogram_color.append('#FFCDD2')
+            else:
+                histogram_color.append('#000000')
+        
+        new_panel_num = plotter_args['new_panel_num']
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.Spearman.SpearmanRCC(self.period)],
+                panel=new_panel_num,
+                color='fuchsia',
+                secondary_y=True,
+                label=Col.Ind.Spearman.SpearmanRCC(self.period)
+            ),
+            mpf.make_addplot(
+                self.df[Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)],
+                panel=new_panel_num,
+                color='b',
+                secondary_y=True,
+                label=Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)
+            ),
+            # Histogram
+            mpf.make_addplot(
+                histogram,
+                panel=new_panel_num,
+                color=histogram_color,
+                type='bar', width=0.7, secondary_y=False),
+        ]
