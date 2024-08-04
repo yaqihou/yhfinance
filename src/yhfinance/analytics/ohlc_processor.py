@@ -237,12 +237,12 @@ class OHLCInterProcessor(_OHLCBaseProcessor):
         """A shortcut to apply all additional features, not support customize result col name
         """
 
-        return self.add_close_open_spread(add_rtn_col=add_rtn_col)\
+        return self.add_close_open_gap(add_rtn_col=add_rtn_col)\
                    .add_all_return(add_rtn_col=add_rtn_col)\
                    .add_all_streak()
 
     @rectify(inter_tick_check=True)
-    def add_close_open_spread(self, *, col_res=Col.Inter.CloseOpenSpread, add_rtn_col: bool = True):
+    def add_close_open_gap(self, *, col_res=Col.Inter.CloseOpenGap, add_rtn_col: bool = True):
         """Add the column for the spread of Open_t - Close_{t-1}
         """
 

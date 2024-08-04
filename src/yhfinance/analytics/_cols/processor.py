@@ -26,7 +26,7 @@ class ColToDay:
 
 class ColInter:
     # Inter-tick features
-    CloseOpenSpread = ColName('InterSpread')
+    CloseOpenGap = ColName('InterGap')
     OpenCloseReturn = ColName('InterOpenClose')
     
     CloseReturn     = ColName('InterClose')
