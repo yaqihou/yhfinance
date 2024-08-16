@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import datetime as dt
 from typing import Optional
 from enum import Enum
@@ -45,7 +45,7 @@ class JobSetup:
     period: Optional[Period] = None
     start: Optional[dt.date | str | int] = None
     end: Optional[dt.date | str | int] = None
-    history_extra_options: HistoryExtraOptions = HistoryExtraOptions()
+    history_extra_options: HistoryExtraOptions = field(default_factory=lambda: HistoryExtraOptions())
 
     # Download setup
     download_full_text_news: bool = False

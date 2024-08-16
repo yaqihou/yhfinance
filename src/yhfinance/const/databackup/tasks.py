@@ -178,7 +178,7 @@ class BaseTask:
     period: Optional[Period] = None  # Period have the highest priority
     start: Optional[dt.datetime | dt.date | str | int] = None
     end: Optional[dt.datetime | dt.date | str | int] = None
-    history_extra_options: HistoryExtraOptions = HistoryExtraOptions()
+    history_extra_options: HistoryExtraOptions = field(default_factory=lambda: HistoryExtraOptions())
     
     # Download Price Data by default
     download_full_text_news: bool = False
@@ -268,9 +268,9 @@ class HistoryTask(BaseTask):
 class IntraDayHistoryTask(HistoryTask):
     past_days: int = 0 # Default to backup current days' data
     backup_freq: BackupFrequency = BackupFrequency.DAILY
-    backup_cond: BackupCondition = bc_weekday_after_market_close_extend
+    backup_cond: BackupCondition = field(default_factory=lambda: bc_weekday_after_market_close_extend)
 
-    history_extra_options: HistoryExtraOptions = HistoryExtraOptions(prepost=True)
+    history_extra_options: HistoryExtraOptions = field(default_factory=lambda: HistoryExtraOptions(prepost=True))
 
 
 @dataclass(kw_only=True)
@@ -280,6 +280,6 @@ class IntraDayHistoryTaskCrypto(HistoryTask):
     past_days: int = 0 # Default to backup current days' data
     end_day_offset: int = 1 # Today's data will always be incomplete
     backup_freq: BackupFrequency = BackupFrequency.DAILY
-    backup_cond: BackupCondition = bc_all
+    backup_cond: BackupCondition = field(default_factory=lambda: bc_all)
 
-    history_extra_options: HistoryExtraOptions = HistoryExtraOptions(prepost=True)
+    history_extra_options: HistoryExtraOptions = field(default_factory=lambda: HistoryExtraOptions(prepost=True))
