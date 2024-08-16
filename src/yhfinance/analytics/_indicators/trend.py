@@ -16,7 +16,7 @@ from ._base import _BaseIndicator
 from .moving_average_band import IndAvgTrueRange
 
 
-class IndAroon(_RollingMixin, _BaseIndicator):
+class IndAroon(_PeriodMixin, _BaseIndicator):
     """The Aroon indicator is a technical analysis tool used to identify
     trends and potential reversal points in the price movements of a
     security. It was developed by Tushar Chande in 1995. The term "Aroon" is
@@ -112,7 +112,7 @@ class IndAroon(_RollingMixin, _BaseIndicator):
         ]
 
 
-class IndSupertrend(_RollingMixin, _BandMixin, _BaseIndicator):
+class IndSupertrend(_PeriodMixin, _BandMixin, _BaseIndicator):
     """Add calculations related to Supertrend up/dn and the actual to
     display
 

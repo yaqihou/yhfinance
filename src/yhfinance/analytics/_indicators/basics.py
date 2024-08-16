@@ -14,7 +14,7 @@ from ._indicators_mixin import *
 from ._base import _BaseIndicator
 
 
-class IndSMA(_RollingMixin, _BaseIndicator):
+class IndSMA(_PeriodMixin, _BaseIndicator):
 
     def __init__(
             self,
@@ -46,7 +46,7 @@ class IndSMA(_RollingMixin, _BaseIndicator):
         ]
 
 
-class IndEMA(_RollingMixin, _BaseIndicator):
+class IndEMA(_PeriodMixin, _BaseIndicator):
     """Return the exponential moving average"""
 
     def __init__(
@@ -80,7 +80,7 @@ class IndEMA(_RollingMixin, _BaseIndicator):
         ]
 
 
-class IndSMMA(_RollingMixin, _BaseIndicator):
+class IndSMMA(_PeriodMixin, _BaseIndicator):
     """Return the exponential moving average"""
 
     def __init__(

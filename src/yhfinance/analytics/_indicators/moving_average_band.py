@@ -1,6 +1,7 @@
 # 
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 import mplfinance as mpf
@@ -15,17 +16,64 @@ from .basics import IndSMA
 from .volatility import IndTrueRange
 
 
-class IndAvgTrueRange(_RollingMixin, _BaseIndicator):
+class IndTriangularMovingAverage(_PeriodMixin, _BaseIndicator):
 
     def __init__(
             self,
             data: OHLCData,
             period   : int = 14,
+            price_col: ColName = Col.Close
+    ):
+    
+        super().__init__(data, period=period, price_col=price_col)
+
+    def _calc(self) -> pd.DataFrame:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        sma_list = []
+        for p in range(1, self.period+1):
+            sma_list.append(
+                self.df[self.price_col].rolling(p).mean()
+            )
+
+        sma = np.vstack(sma_list)
+        tma = sma.mean(axis=0)
+        _df[Col.Ind.TMA(self.period)] = tma
+
+        return _df
+
+    @property
+    def values(self):
+        return self.df[Col.Ind.TMA(self.period)].values
+
+    @property
+    def need_new_panel_num(self) -> bool:
+        return False
+
+    def make_addplot(self, plotter_args: dict, *args, **kwargs) -> list[dict]:
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.TMA(self.period)],
+                type='line',
+                panel=plotter_args['main_panel'],
+                label=Col.Ind.TMA(self.period)
+            )
+        ]
+
+class IndAvgTrueRange(_PeriodMixin, _BaseIndicator):
+
+    def __init__(
+            self,
+            data: OHLCData,
+            period   : int = 14,
+            price_col: ColName = Col.Close,
             keep_tr_result: bool = True
     ):
     
         self.keep_tr_result = keep_tr_result
-        super().__init__(data, period=period)
+        super().__init__(data, period=period, price_col=price_col)
 
     def _calc(self) -> pd.DataFrame:
         # ATR_curr = ATR_prev * (n-1) / n + TR_curr * (1/n)
@@ -128,7 +176,7 @@ class IndATRBand(_BandMixin, IndAvgTrueRange):
         }
 
 
-class IndBollingerBand(_RollingMixin, _BandMixin, _BaseIndicator):
+class IndBollingerBand(_PeriodMixin, _BandMixin, _BaseIndicator):
     """The Awesome Oscillator is an indicator used to measure market
     momentum. AO calculates the difference of a 34 Period and 5 Period
     Simple Moving Averages. The Simple Moving Averages that are used are
@@ -362,6 +410,7 @@ class IndStarcBand(_BandMixin, _BaseIndicator):
         
         return ret
 
+    
 
 # class IndTriMovingAverage(_BaseIndicator):
 

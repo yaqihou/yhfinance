@@ -6,8 +6,9 @@ from ..ohlc_cols import Col, ColName
 
 __all__ = [
     '_BandMixin',
-    '_RollingMixin',
+    '_PeriodMixin',
     '_PriceColMixin',
+    '_HistogramColorMixin'
 ]
 
 class _BandMixin:
@@ -25,7 +26,7 @@ class _BandMixin:
 
         super().__init__(*args, **kwargs)
 
-class _RollingMixin:
+class _PeriodMixin:
 
     def __init__(self,
                  *args,
@@ -53,8 +54,35 @@ class _PriceColMixin:
             print(ColName, id(ColName))
             print(type(price_col) is ColName)
             warnings.warn(f'price_col should be a str or ColName instance: {price_col.__class__.__name__}, {isinstance(price_col, ColName)}')
+            _price_col = price_col
 
-        assert price_col in Col.All_PRICE
+        # assert price_col in Col.All_PRICE
         
         self.price_col = _price_col
         super().__init__(*args, **kwargs)
+
+
+class _HistogramColorMixin:
+    
+    @staticmethod
+    def _get_histogram_color(histogram):
+
+        histogram_color = ['#000000']
+        for idx, val in enumerate(histogram[1:], 1):
+            if val >= 0 and histogram[idx-1] < val:
+                histogram_color.append('#26A69A')
+                #print(i,'green')
+            elif val >= 0 and histogram[idx-1] > val:
+                histogram_color.append('#B2DFDB')
+                #print(i,'faint green')
+            elif val < 0 and histogram[idx-1] > val:
+                #print(i,'red')
+                histogram_color.append('#FF5252')
+            elif val < 0 and histogram[idx-1] < val:
+                #print(i,'faint red')
+                histogram_color.append('#FFCDD2')
+            else:
+                histogram_color.append('#000000')
+
+        return histogram_color
+        

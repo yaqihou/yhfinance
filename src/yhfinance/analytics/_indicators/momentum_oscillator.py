@@ -14,6 +14,7 @@ from ..ohlc_data import OHLCData
 from ._indicators_mixin import *
 from ._base import _BaseIndicator
 from .basics import IndSMA, IndEMA
+from .moving_average_band import IndTriangularMovingAverage
 
 
 # class _IndMACDLike(_baseIndicator):
@@ -229,7 +230,7 @@ class IndMACD(_BaseIndicator):
         }
 
 
-class _IndRSI(_RollingMixin, _BaseIndicator):
+class _IndRSI(_PeriodMixin, _BaseIndicator):
 
     def __init__(
             self,
@@ -368,7 +369,7 @@ class IndCutlerRSI(_IndRSI):
         return self._assign_rsi_result(_df)
 
 
-class IndSpearman(_RollingMixin, _BaseIndicator):
+class IndSpearman(_HistogramColorMixin, _PeriodMixin, _BaseIndicator):
     """The Spearman study is a technical indicator used for evaluation of
     trend strength and turning point detection. This study calculates
     Spearman's rank correlation coefficient in order to reveal correlation
@@ -437,23 +438,7 @@ class IndSpearman(_RollingMixin, _BaseIndicator):
 
         histogram = (self.df[Col.Ind.Spearman.SpearmanRCC(self.period)]
                      - self.df[Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)]).values
-
-        histogram_color = ['#000000']
-        for idx, val in enumerate(histogram[1:], 1):
-            if val >= 0 and histogram[idx-1] < val:
-                histogram_color.append('#26A69A')
-                #print(i,'green')
-            elif val >= 0 and histogram[idx-1] > val:
-                histogram_color.append('#B2DFDB')
-                #print(i,'faint green')
-            elif val < 0 and histogram[idx-1] > val:
-                #print(i,'red')
-                histogram_color.append('#FF5252')
-            elif val < 0 and histogram[idx-1] < val:
-                #print(i,'faint red')
-                histogram_color.append('#FFCDD2')
-            else:
-                histogram_color.append('#000000')
+        histogram_color = self._get_histogram_color(histogram)
         
         new_panel_num = plotter_args['new_panel_num']
 
@@ -471,6 +456,230 @@ class IndSpearman(_RollingMixin, _BaseIndicator):
                 color='b',
                 secondary_y=True,
                 label=Col.Ind.Spearman.SpearmanSMA(self.period, self.smoothing_period)
+            ),
+            # Histogram
+            mpf.make_addplot(
+                histogram,
+                panel=new_panel_num,
+                color=histogram_color,
+                type='bar', width=0.7, secondary_y=False),
+        ]
+
+
+class IndRelativeVigorIndex(_HistogramColorMixin, _PeriodMixin, _BaseIndicator):
+    """The Relative Vigor Index (RVI) is a momentum indicator used in
+    technical analysis. It measures the strength of a trend by comparing a
+    security's closing price to its trading range while smoothing the
+    results using a simple moving average (SMA).
+
+    The RVI's usefulness is based on the observed tendency for prices to
+    close higher than they open during uptrends, and to close lower than
+    they open in downtrends."""
+
+    def __init__(
+            self,
+            data: OHLCData,
+            price_col: ColName = Col.Close,
+            period: int = 7,
+            smoothing_weight: tuple[int | float, ...] | list[int | float] = (1, 2, 2, 1)
+    ):
+        self.smoothing_weight = smoothing_weight
+        super().__init__(data, price_col, period=period)
+
+    def _calc(self) -> pd.DataFrame:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        C = self.df[Col.Close].values
+        O = self.df[Col.Open].values
+        L = self.df[Col.Low].values
+        H = self.df[Col.High].values
+
+        # TODO - use volume as a weight
+        # TODO - now only the ratio is considered, but the magnitude of swing is out of the picture
+
+        # NOTE - the convolution is easy to implement but does not support a dynamic Volume weight
+        nume = np.convolve(C - O, self.smoothing_weight, mode='full')[:len(_df)]
+        deno = np.convolve(H - L, self.smoothing_weight, mode='full')[:len(_df)]
+        
+        # nume_list = [C - O]
+        # for padding in range(1, len(self.smoothing_weight)):
+        #     nume_list.append(
+        #         np.pad(C[:-padding] - O[:-padding], (padding, 0), 'constant', constant_values=(np.nan,))
+        #     )
+
+        # deno_list = [H - L]
+        # for padding in range(1, len(self.smoothing_weight)):
+        #     deno_list.append(
+        #         np.pad(H[:-padding] - L[:-padding], (padding, 0), 'constant', constant_values=(np.nan,))
+        #     )
+
+        # nume_arr = np.array(nume_list)
+        # deno_arr = np.array(deno_list)
+
+        # nume = (nume_arr * np.array(self.smoothing_weight)[:, None]).sum(axis=0) / sum(self.smoothing_weight)
+        # deno = (deno_arr * np.array(self.smoothing_weight)[:, None]).sum(axis=0) / sum(self.smoothing_weight)
+
+        # a = C - O
+        # b = np.pad(C[:-1] - O[:-1], (1, 0), 'constant', constant_values=(np.nan,))
+        # c = np.pad(C[:-2] - O[:-2], (2, 0), 'constant', constant_values=(np.nan,))
+        # d = np.pad(C[:-3] - O[:-3], (3, 0), 'constant', constant_values=(np.nan,))
+
+        # e = H - L
+        # f = np.pad(H[:-1] - L[:-1], (1, 0), 'constant', constant_values=(np.nan,))
+        # g = np.pad(H[:-2] - L[:-2], (2, 0), 'constant', constant_values=(np.nan,))
+        # h = np.pad(H[:-3] - L[:-3], (3, 0), 'constant', constant_values=(np.nan,))
+
+        # nume_test = ( a + 2*b + 2*c + d) / 6.
+        # deno_test = ( e + 2*f + 2*g + h) / 6.
+        # print(np.nansum((nume_test - nume)))
+        # print(np.nansum((deno_test - deno)))
+
+        _df[Col.Ind.RVigorI.Nume.name] = nume
+        _df[Col.Ind.RVigorI.Deno.name] = deno
+
+        _df[Col.Ind.RVigorI.RVI(self.period)] = (
+            _df[Col.Ind.RVigorI.Nume.name].rolling(self.period).mean()
+            / _df[Col.Ind.RVigorI.Deno.name].rolling(self.period).mean()
+        )
+
+        rvi = _df[Col.Ind.RVigorI.RVI(self.period)].values
+        rvi_list = [rvi]
+        for padding in range(1, len(self.smoothing_weight)):
+            rvi_list.append(
+                np.pad(rvi[:-padding], (padding, 0), 'constant', constant_values=(np.nan,))
+            )
+        rvi_arr = np.array(rvi_list)
+        signal = (rvi_arr * np.array(self.smoothing_weight)[:, None]).sum(axis=0) / sum(self.smoothing_weight)
+
+        # rvi = _df[Col.Ind.RVigorI.RVI(self.period)].values
+        # i = np.pad(rvi[:-1], (1, 0), 'constant', constant_values=(np.nan,))
+        # j = np.pad(rvi[:-2], (2, 0), 'constant', constant_values=(np.nan,))
+        # k = np.pad(rvi[:-3], (3, 0), 'constant', constant_values=(np.nan,))
+        # signal_test = (rvi + 2*i + 2*j + k) / 6.
+        # print(np.nansum((signal_test - signal)))
+
+        _df[Col.Ind.RVigorI.Signal(self.period)] = signal
+
+        return _df
+
+    @property
+    def values(self):
+        return self._df[Col.Ind.RVigorI.RVI(self.period)].values
+    
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        histogram = (self.df[Col.Ind.RVigorI.RVI(self.period)]
+                     - self.df[Col.Ind.RVigorI.Signal(self.period)]).values
+        histogram_color = self._get_histogram_color(histogram)
+        
+        new_panel_num = plotter_args['new_panel_num']
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.RVigorI.RVI(self.period)],
+                panel=new_panel_num,
+                color='fuchsia',
+                secondary_y=True,
+                label=Col.Ind.RVigorI.RVI(self.period)
+            ),
+            mpf.make_addplot(
+                self.df[Col.Ind.RVigorI.Signal(self.period)],
+                panel=new_panel_num,
+                color='b',
+                secondary_y=True,
+                label=Col.Ind.RVigorI.Signal(self.period)
+            ),
+            # Histogram
+            mpf.make_addplot(
+                histogram,
+                panel=new_panel_num,
+                color=histogram_color,
+                type='bar', width=0.7, secondary_y=False),
+        ]
+
+
+class IndRelativeVigorIndexTMA(_HistogramColorMixin, _PeriodMixin, _BaseIndicator):
+    """A variation of the ordinary RVI in that the smoothing is done through TMA
+    """
+
+    def __init__(
+            self,
+            data: OHLCData,
+            price_col: ColName = Col.Close,
+            period: int = 7,
+            period_signal: int = 4
+    ):
+        self.period_signal = period_signal
+        super().__init__(data, price_col, period=period)
+
+    def _calc(self) -> pd.DataFrame:
+
+        _df = self._df[[self.tick_col]].copy()
+
+        C = self.df[Col.Close].values
+        O = self.df[Col.Open].values
+        L = self.df[Col.Low].values
+        H = self.df[Col.High].values
+
+        ratios = (C - O) / (H - L)
+        _df[Col.Ind.RVigorI_TMA.RV.name] = ratios
+
+        _tma = IndTriangularMovingAverage(
+            OHLCData(_df, self.tick_col),
+            price_col=Col.Ind.RVigorI_TMA.RV.name,
+            period=self.period
+        )
+        _df[Col.Ind.RVigorI_TMA.RVI(self.period)] = _tma.values
+
+
+        _tma = IndTriangularMovingAverage(
+            OHLCData(_df, self.tick_col),
+            price_col=Col.Ind.RVigorI_TMA.RVI(self.period),
+            period=self.period_signal
+        )
+        _df[Col.Ind.RVigorI_TMA.Signal(self.period, self.period_signal)] = _tma.values
+
+        return _df
+
+    @property
+    def values(self):
+        return self._df[Col.Ind.RVigorI.RVI(self.period)].values
+    
+    @property
+    def need_new_panel_num(self) -> bool:
+        return True
+
+    def make_addplot(self, plotter_args: dict,
+                     *args,
+                     **kwargs) -> list[dict]:
+
+        histogram = (self.df[Col.Ind.RVigorI_TMA.RVI(self.period)]
+                     - self.df[Col.Ind.RVigorI_TMA.Signal(self.period, self.period_signal)]).values
+        histogram_color = self._get_histogram_color(histogram)
+        
+        new_panel_num = plotter_args['new_panel_num']
+
+        return [
+            mpf.make_addplot(
+                self.df[Col.Ind.RVigorI_TMA.RVI(self.period)],
+                panel=new_panel_num,
+                color='fuchsia',
+                secondary_y=True,
+                label=Col.Ind.RVigorI_TMA.RVI(self.period)
+            ),
+            mpf.make_addplot(
+                self.df[Col.Ind.RVigorI_TMA.Signal(self.period, self.period_signal)],
+                panel=new_panel_num,
+                color='b',
+                secondary_y=True,
+                label=Col.Ind.RVigorI_TMA.Signal(self.period, self.period_signal)
             ),
             # Histogram
             mpf.make_addplot(

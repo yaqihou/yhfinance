@@ -10,7 +10,7 @@ from ._indicators_mixin import *
 from ._base import _BaseIndicator
 
 
-class IndMoneyFlowIndex(_RollingMixin, _BaseIndicator):
+class IndMoneyFlowIndex(_PeriodMixin, _BaseIndicator):
     """The Money Flow Index (MFI) is a technical oscillator that uses
     price and volume data for identifying overbought or oversold signals in
     an asset. It can also be used to spot divergences which warn of a trend

@@ -3,24 +3,39 @@ from typing import Literal
 
 from ._indicators._base import _BaseIndicator
 from ._indicators.basics import IndEMA, IndSMA, IndSMMA
-from ._indicators.momentum_oscillator import IndAwesomeOscillator, IndMACD, IndWilderRSI, IndEmaRSI, IndCutlerRSI, IndSpearman
-from ._indicators.moving_average_band import IndAvgTrueRange, IndATRBand, IndBollingerBand, IndBollingerBandModified, IndStarcBand
+
+from ._indicators.momentum_oscillator import IndAwesomeOscillator, IndMACD,\
+    IndWilderRSI, IndEmaRSI, IndCutlerRSI,\
+    IndSpearman,\
+    IndRelativeVigorIndex, IndRelativeVigorIndexTMA
+    
+from ._indicators.moving_average_band import IndAvgTrueRange, IndATRBand,\
+    IndBollingerBand, IndBollingerBandModified,\
+    IndStarcBand, IndTriangularMovingAverage
+
 from ._indicators.trend import IndAroon, IndSupertrend
 from ._indicators.volatility import IndTrueRange
-from ._indicators.volume import IndMoneyFlowIndex, IndAccumulationDistribution, IndOnBalanceVolume, IndMarketFacilitationIndex
+
+from ._indicators.volume import IndMoneyFlowIndex,\
+    IndAccumulationDistribution,\
+    IndOnBalanceVolume,\
+    IndMarketFacilitationIndex
 
 
 __all__ = [
+    # Basics
     'IndSMA', 'IndEMA', 'IndSMMA',
     # Momentum / Oscillator
     'IndAwesomeOscillator',
     'IndMACD',
     'IndWilderRSI', 'IndEmaRSI', 'IndCutlerRSI',
     'IndSpearman',
+    'IndRelativeVigorIndex', 'IndRelativeVigorIndexTMA',
     # Trend
     'IndSupertrend',
     'IndAroon',
     # Moving Average / Band
+    'IndTriangularMovingAverage',
     'IndTrueRange', 'IndAvgTrueRange', 'IndATRBand', 'IndStarcBand',
     'IndBollingerBand',
     'IndBollingerBandModified',

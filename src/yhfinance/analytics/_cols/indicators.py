@@ -113,6 +113,21 @@ _Spearman = _T_SPEARMAN(
     ColName('SpearmanSMA', callback=indicator_callback),
 )
 
+_T_RVigorI = namedtuple('RelVigorIndex', ['Nume', 'Deno', 'RVI', 'Signal'])
+_RVigorI = _T_RVigorI(
+    ColName('RVigI-Nume'),
+    ColName('RVigI-Deno'),
+    ColName('RVigI-RVI', callback=indicator_callback),
+    ColName('RVigI-Signal', callback=indicator_callback),
+)
+
+_T_RVigorITMA = namedtuple('RelVigorIndexTMA', ['RV', 'RVI', 'Signal'])
+_RVigorITMA = _T_RVigorITMA(
+    ColName('RVigI-TMA-RV'),
+    ColName('RVigI-TMA-RVI', callback=indicator_callback),
+    ColName('RVigI-TMA-Signal', callback=indicator_callback),
+)
+
     
 # TODO - could further divided into MOmentum / etc.
 class ColInd:
@@ -120,6 +135,7 @@ class ColInd:
     # TODO - add function to list by categories
 
     SMA = ColName('SMA', callback=indicator_callback)
+    TMA = ColName('TMA', callback=indicator_callback)
     EMA = ColName('EMA', callback=indicator_callback)
     SMMA = ColName('SMMA', callback=indicator_callback)
 
@@ -146,3 +162,5 @@ class ColInd:
     MFacI = _MFacI
 
     Spearman = _Spearman
+    RVigorI = _RVigorI
+    RVigorI_TMA = _RVigorITMA
