@@ -1,5 +1,6 @@
 
 from copy import deepcopy
+import warnings
 import pandas as pd
 
 from .ohlc_cols import Col
@@ -23,14 +24,17 @@ class OHLCData:
         self.df.sort_values(by=self.tick_col, inplace=True)
 
     def _add_more_prices(self):
-        self.df[Col.Median.name] = 0.5 * (self.df[Col.High.name] + self.df[Col.Low.name])
-        self.df[Col.Typical.name] = (
-            self.df[Col.High.name]+ self.df[Col.Low.name] + self.df[Col.Close.name]
-        ) / 3.
-        self.df[Col.Avg.name] = 0.25 * (
-            self.df[Col.High.name] + self.df[Col.Low.name]
-            + self.df[Col.Close.name] + self.df[Col.Open.name]
-        )
+        if len(set(Col.OHLC) & set(self.df.columns)) == 4:
+            self.df[Col.Median.name] = 0.5 * (self.df[Col.High.name] + self.df[Col.Low.name])
+            self.df[Col.Typical.name] = (
+                self.df[Col.High.name]+ self.df[Col.Low.name] + self.df[Col.Close.name]
+            ) / 3.
+            self.df[Col.Avg.name] = 0.25 * (
+                self.df[Col.High.name] + self.df[Col.Low.name]
+                + self.df[Col.Close.name] + self.df[Col.Open.name]
+            )
+        else:
+            warnings.warn('Input DataFrame may not be a OHLC data')
 
     @property
     def _base_columns(self):
