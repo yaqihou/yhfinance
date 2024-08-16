@@ -1,3 +1,4 @@
+from typing import Optional
 import pandas as pd
 
 from yhfinance.const.db import TableName
@@ -10,9 +11,10 @@ logger = MyLogger(DBConfig.LOGGER_NAME)
 
 class DBFetcher:
 
-    def __init__(self, db_name: str = DBConfig.DB_NAME):
-        self._db_name = db_name
-        self.db = DB(db_name)
+    def __init__(self, db_name: Optional[str] = None):
+
+        self._db_name = db_name or DBConfig.DB_NAME
+        self.db = DB(self._db_name)
 
     def __enter__(self):
         return self
