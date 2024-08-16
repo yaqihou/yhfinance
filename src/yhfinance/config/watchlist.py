@@ -12,8 +12,12 @@ etf_tickers = ['TQQQ', 'SQQQ', 'QQQ',
                'SOXX', 'USD',
                'SPY', 'IVV',
                'NVDL', 'NVDX', 'NVD', 'NVDQ',
-               'JET', 'JETU', 'JETD',
+               'JET', 'JETU', 'JETD', 
                'IBIT']
+
+etf_tickers_daily = [
+    'QYLD', 'QYLG', 'XYLD', 'RYLD'
+]
 
 mag7_stock_tickers = ['AAPL', 'TSLA', 'GOOG', 'MSFT', 'META', 'AMZN', 'NVDA']
 bank_stock_tickers = ['WFC', 'JPM', 'BAC', 'MS', 'HSBC', 'GS', 'C', 'UBS', 'TD']
@@ -28,6 +32,11 @@ DEFAULT_WATCHLIST = [
         ticker_type = TickerType.ETF,
         tasks=task_preset_factory.all_tasks
     ) for ticker in etf_tickers],
+    *[UserConfig(
+        ticker_name = ticker,
+        ticker_type = TickerType.ETF,
+        tasks=[task_preset_factory.DAY_HIST_DAILY],
+    ) for ticker in etf_tickers_daily],
     # Stock
     *[UserConfig(
         ticker_name = ticker,
